@@ -32,8 +32,15 @@ func RoutesHandler() {
 
 	protected := r.Group("/api/v1")
 	protected.Use(middleware.TokenAuthMiddleware())
+	{
+		protected.POST("/start", controllers.StartServer)
+		protected.POST("/stop", controllers.StopServer)
+		protected.POST("/restart", controllers.RestartServer)
+	}
 
-	protected.POST("/start", controllers.StartServer)
+	r.NoRoute(func(c *gin.Context) {
+		c.JSON(404, gin.H{"message": "Not Found: " + c.Request.URL.Path})
+	})
 
 	if err := r.Run(":4000"); err != nil {
 		log.Fatalf("Failed to run server: %v", err)
