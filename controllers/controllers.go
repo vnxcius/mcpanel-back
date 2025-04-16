@@ -1,9 +1,9 @@
 package controllers
 
 import (
+	"log"
 	"net/http"
 	"os"
-	"os/exec"
 
 	"github.com/gin-gonic/gin"
 )
@@ -11,8 +11,6 @@ import (
 type VerifyTokenRequest struct {
 	Token string `json:"token"`
 }
-
-var cmd *exec.Cmd
 
 func VerifyToken(c *gin.Context) {
 	validToken := os.Getenv("TOKEN")
@@ -43,9 +41,13 @@ func VerifyToken(c *gin.Context) {
 }
 
 func StartServer(c *gin.Context) {
-	if cmd != nil && cmd.Process != nil {
-		cmd.Process.Kill()
-	}
+	log.Println("Starting server...")
+}
 
-	cmd = exec.Command("bash", "/home/simon/minecraft/start.sh")
+func StopServer(c *gin.Context) {
+	log.Println("Stopping server...")
+}
+
+func RestartServer(c *gin.Context) {
+	log.Println("Restarting server...")
 }
