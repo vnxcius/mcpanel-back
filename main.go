@@ -4,6 +4,7 @@ import (
 	"log"
 
 	"github.com/joho/godotenv"
+	"github.com/vnxcius/sss-backend/controllers"
 	"github.com/vnxcius/sss-backend/routes"
 )
 
@@ -13,5 +14,6 @@ func main() {
 		log.Fatal("Error loading .env file")
 	}
 
+	controllers.InitializeStatusManager()
 	routes.RoutesHandler()
 }

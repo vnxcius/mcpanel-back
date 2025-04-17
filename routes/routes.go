@@ -28,7 +28,10 @@ func RoutesHandler() {
 	}))
 
 	r.Use(middleware.RateLimitMiddleware())
-	r.POST("/v1/verify-token", controllers.VerifyToken)
+	{
+		r.POST("/v1/verify-token", controllers.VerifyToken)
+		r.GET("/v1/sse", controllers.StatusStream)
+	}
 
 	protected := r.Group("/api/v1")
 	protected.Use(middleware.TokenAuthMiddleware())
