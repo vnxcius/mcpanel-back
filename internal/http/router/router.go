@@ -1,20 +1,23 @@
-package routes
+package router
 
 import (
-	"log"
 	"time"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
-	"github.com/vnxcius/sss-backend/controllers"
-	"github.com/vnxcius/sss-backend/middleware"
+	"github.com/vnxcius/sss-backend/internal/http/handlers"
+	"github.com/vnxcius/sss-backend/internal/http/middleware"
 )
 
-func RoutesHandler() {
+func NewRouter() {
 	r := gin.Default()
 
 	r.Use(cors.New(cors.Config{
-		AllowOrigins: []string{"http://localhost:3000"},
+		AllowOrigins: []string{
+			"http://localhost:3000",
+			"https://sss.vncius.dev",
+			"https://sss-api.vncius.dev",
+		},
 		AllowMethods: []string{"GET", "POST", "OPTIONS"},
 		AllowHeaders: []string{"Content-Type", "Authorization"},
 		ExposeHeaders: []string{
@@ -29,23 +32,20 @@ func RoutesHandler() {
 
 	r.Use(middleware.RateLimitMiddleware())
 	{
-		r.POST("/v1/verify-token", controllers.VerifyToken)
-		r.GET("/v1/sse", controllers.StatusStream)
+		r.GET("/ping", handlers.Ping)
+		r.POST("/v1/verify-token", handlers.VerifyToken)
+		r.GET("/v1/sse", handlers.StatusStream)
 	}
 
 	protected := r.Group("/api/v1")
 	protected.Use(middleware.TokenAuthMiddleware())
 	{
-		protected.POST("/start", controllers.StartServer)
-		protected.POST("/stop", controllers.StopServer)
-		protected.POST("/restart", controllers.RestartServer)
+		protected.POST("/start", handlers.StartServer)
+		protected.POST("/stop", handlers.StopServer)
+		protected.POST("/restart", handlers.RestartServer)
 	}
 
 	r.NoRoute(func(c *gin.Context) {
 		c.JSON(404, gin.H{"message": "Not Found: " + c.Request.URL.Path})
 	})
-
-	if err := r.Run(":4000"); err != nil {
-		log.Fatalf("Failed to run server: %v", err)
-	}
 }

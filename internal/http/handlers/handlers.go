@@ -1,23 +1,19 @@
-package controllers
+package handlers
 
 import (
 	"fmt"
 	"net/http"
-	"os"
 
 	"github.com/gin-gonic/gin"
-	"github.com/vnxcius/sss-backend/status"
+	"github.com/vnxcius/sss-backend/internal/config"
+	"github.com/vnxcius/sss-backend/internal/http/events"
 )
 
 type VerifyTokenRequest struct {
 	Token string `json:"token"`
 }
 
-var ServerStatusMgr *status.StatusManager
-
-func InitializeStatusManager() {
-	ServerStatusMgr = status.NewStatusManager()
-}
+var ServerStatusMgr *events.StatusManager
 
 // StatusStream handles SSE connections
 func StatusStream(c *gin.Context) {
@@ -25,7 +21,7 @@ func StatusStream(c *gin.Context) {
 	c.Writer.Header().Set("Cache-Control", "no-cache")
 	c.Writer.Header().Set("Connection", "keep-alive")
 
-	clientChan := make(chan status.ServerStatus, 1)
+	clientChan := make(chan events.ServerStatus, 1)
 	ServerStatusMgr.AddClient(clientChan)
 	defer ServerStatusMgr.RemoveClient(clientChan)
 
@@ -61,8 +57,14 @@ func StatusStream(c *gin.Context) {
 	}
 }
 
+func Ping(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{"message": "pong"})
+}
+
 func VerifyToken(c *gin.Context) {
-	validToken := os.Getenv("TOKEN")
+	cfg := config.GetConfig()
+
+	validToken := cfg.Token
 	var req VerifyTokenRequest
 
 	if err := c.BindJSON(&req); err != nil {
@@ -92,7 +94,7 @@ func VerifyToken(c *gin.Context) {
 func StartServer(c *gin.Context) {
 	// Add checks: Is it already online or starting?
 	currentStatus := ServerStatusMgr.GetStatus()
-	if currentStatus == status.Online || currentStatus == status.Starting {
+	if currentStatus == events.Online || currentStatus == events.Starting {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "Server is already online or starting"})
 		return
 	}
@@ -106,7 +108,7 @@ func StartServer(c *gin.Context) {
 func StopServer(c *gin.Context) {
 	// Add checks: Is it already offline or stopping?
 	currentStatus := ServerStatusMgr.GetStatus()
-	if currentStatus == status.Offline || currentStatus == status.Stopping {
+	if currentStatus == events.Offline || currentStatus == events.Stopping {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "Server is already offline or stopping"})
 		return
 	}
@@ -118,13 +120,18 @@ func StopServer(c *gin.Context) {
 func RestartServer(c *gin.Context) {
 	// Add checks: avoid restarting if already restarting, starting, stopping?
 	currentStatus := ServerStatusMgr.GetStatus()
-	if currentStatus == status.Restarting || currentStatus == status.Starting || currentStatus == status.Stopping {
+	if currentStatus ==
+		events.Restarting ||
+		currentStatus == events.Starting ||
+		currentStatus == events.Stopping {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "Server is currently changing state"})
 		return
 	}
 	// Allow restarting from Online or Offline state maybe? Adjust logic as needed.
-	if currentStatus != status.Online && currentStatus != status.Offline {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "Server cannot be restarted from current state"})
+	if currentStatus != events.Online && currentStatus != events.Offline {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "Server cannot be restarted from current state",
+		})
 		return
 	}
 

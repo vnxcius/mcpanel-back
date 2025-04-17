@@ -3,16 +3,18 @@ package middleware
 import (
 	"fmt"
 	"net/http"
-	"os"
 	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/ulule/limiter/v3"
 	memory "github.com/ulule/limiter/v3/drivers/store/memory"
+	"github.com/vnxcius/sss-backend/internal/config"
 )
 
 func TokenAuthMiddleware() gin.HandlerFunc {
-	validToken := os.Getenv("TOKEN")
+	cfg := config.GetConfig()
+
+	validToken := cfg.Token
 	if validToken == "" {
 		return func(c *gin.Context) {
 			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
