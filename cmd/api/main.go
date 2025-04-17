@@ -34,10 +34,4 @@ func main() {
 
 	events.NewStatusManager()
 	router.NewRouter()
-
-	r := gin.Default()
-	r.Run(cfg.Port)
-	if err := r.Run(); err != nil {
-		log.Fatal(err)
-	}
 }
