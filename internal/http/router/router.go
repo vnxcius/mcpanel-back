@@ -39,7 +39,7 @@ func NewRouter() {
 		MaxAge:           24 * time.Hour,
 	}))
 
-	r.Use(middleware.RateLimitMiddleware())
+	r.Use(middleware.RateLimit())
 	{
 		r.GET("/ping", handlers.Ping)
 		r.POST("/v1/verify-token", handlers.VerifyToken)
@@ -47,7 +47,7 @@ func NewRouter() {
 	}
 
 	protected := r.Group("/api/v1")
-	protected.Use(middleware.TokenAuthMiddleware())
+	protected.Use(middleware.TokenAuth())
 	{
 		protected.POST("/start", handlers.StartServer)
 		protected.POST("/stop", handlers.StopServer)
