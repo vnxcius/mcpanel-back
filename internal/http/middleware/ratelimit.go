@@ -12,7 +12,7 @@ import (
 
 const (
 	// rateLimit is the number of requests per second
-	rateLimit = 1
+	rateLimit = 2
 	// burst is the maximum number of requests that can be made in a single burst
 	burst = 4
 )

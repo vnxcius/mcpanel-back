@@ -18,6 +18,9 @@ type Config struct {
 	Environment string `mapstructure:"ENVIRONMENT"`
 	Token       string `mapstructure:"TOKEN"`
 
+	BotToken string `mapstructure:"BOT_TOKEN"`
+	BotPrefix string `mapstructure:"BOT_PREFIX"`
+
 	PostgresDSN       string        `mapstructure:"POSTGRES_DSN"`
 	DBName            string        `mapstructure:"DB_NAME"`
 	DBUser            string        `mapstructure:"DB_USER"`
