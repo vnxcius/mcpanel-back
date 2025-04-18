@@ -1,6 +1,7 @@
 package events
 
 import (
+	"log"
 	"sync"
 )
 
@@ -9,6 +10,13 @@ type StatusManager struct {
 	currentStatus ServerStatus
 	clients       map[chan ServerStatus]bool
 	updatesChan   chan ServerStatus
+}
+
+var ServerStatusManager *StatusManager
+
+func InitializeStatusManager() {
+	ServerStatusManager = NewStatusManager()
+	log.Println("Status manager initialized")
 }
 
 func NewStatusManager() *StatusManager {
@@ -39,7 +47,22 @@ func (sm *StatusManager) SetStatus(newStatus ServerStatus) {
 	select {
 	case sm.updatesChan <- newStatus:
 	default:
-		// Optional: log dropped update
+		// Broadcaster might be busy, maybe log this if important
+		log.Println("Status update dropped")
+	}
+}
+
+func (sm *StatusManager) runBroadcaster() {
+	for statusUpdate := range sm.updatesChan {
+		sm.mu.RLock()
+		for clientChan := range sm.clients {
+			select {
+			case clientChan <- statusUpdate:
+			default:
+				log.Println("Status update dropped")
+			}
+		}
+		sm.mu.RUnlock()
 	}
 }
 
@@ -55,18 +78,4 @@ func (sm *StatusManager) RemoveClient(clientChan chan ServerStatus) {
 	delete(sm.clients, clientChan)
 	close(clientChan)
 	sm.mu.Unlock()
-}
-
-func (sm *StatusManager) runBroadcaster() {
-	for statusUpdate := range sm.updatesChan {
-		sm.mu.RLock()
-		for clientChan := range sm.clients {
-			select {
-			case clientChan <- statusUpdate:
-			default:
-				// Optional: log client is slow
-			}
-		}
-		sm.mu.RUnlock()
-	}
 }

@@ -9,11 +9,11 @@ func (sm *StatusManager) SimulateOperation(startStatus, endStatus ServerStatus, 
 }
 
 func (sm *StatusManager) SimulateStart() {
-	go sm.SimulateOperation(Starting, Online, 5*time.Second)
+	go sm.SimulateOperation(Starting, Online, 5*time.Second) // Start -> Online in 5s
 }
 
 func (sm *StatusManager) SimulateStop() {
-	go sm.SimulateOperation(Stopping, Offline, 3*time.Second)
+	go sm.SimulateOperation(Stopping, Offline, 3*time.Second) // Stop -> Offline in 3s
 }
 
 func (sm *StatusManager) SimulateRestart() {

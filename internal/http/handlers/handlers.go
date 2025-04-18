@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -13,8 +14,6 @@ type VerifyTokenRequest struct {
 	Token string `json:"token"`
 }
 
-var ServerStatusMgr *events.StatusManager
-
 // StatusStream handles SSE connections
 func StatusStream(c *gin.Context) {
 	c.Writer.Header().Set("Content-Type", "text/event-stream")
@@ -22,8 +21,8 @@ func StatusStream(c *gin.Context) {
 	c.Writer.Header().Set("Connection", "keep-alive")
 
 	clientChan := make(chan events.ServerStatus, 1)
-	ServerStatusMgr.AddClient(clientChan)
-	defer ServerStatusMgr.RemoveClient(clientChan)
+	events.ServerStatusManager.AddClient(clientChan)
+	defer events.ServerStatusManager.RemoveClient(clientChan)
 
 	// Use context to detect client disconnect
 	ctx := c.Request.Context()
@@ -33,11 +32,6 @@ func StatusStream(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "Streaming unsupported"})
 		return
 	}
-
-	// Send initial status (already handled by AddClient, but explicit send can also work)
-	// initialStatus := ServerStatusMgr.GetStatus()
-	// fmt.Fprintf(c.Writer, "data: {\"status\": \"%s\"}\n\n", initialStatus)
-	// flusher.Flush()
 
 	for {
 		select {
@@ -63,63 +57,55 @@ func Ping(c *gin.Context) {
 
 func VerifyToken(c *gin.Context) {
 	cfg := config.GetConfig()
-
 	validToken := cfg.Token
-	var req VerifyTokenRequest
 
-	if err := c.BindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
+	if validToken == "" {
+		log.Println("VerifyToken Error: Server token not configured.")
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "Server configuration error"})
+		return
+	}
+
+	var req VerifyTokenRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "Invalid request body: " + err.Error()})
 		return
 	}
 
 	if validToken == req.Token {
-		c.SetCookie(
-			"sss-token",
-			validToken,
-			30*24*60*60, // 30 days
-			"/",
-			"",
-			false,
-			true,
-		)
-
 		c.JSON(http.StatusOK, gin.H{"message": "Token verificado com sucesso"})
-
-		return
+	} else {
+		c.JSON(http.StatusUnauthorized, gin.H{"message": "Token inválido"})
 	}
-
-	c.JSON(http.StatusUnauthorized, gin.H{"message": "Token inválido"})
 }
 
 func StartServer(c *gin.Context) {
-	// Add checks: Is it already online or starting?
-	currentStatus := ServerStatusMgr.GetStatus()
+	currentStatus := events.ServerStatusManager.GetStatus()
 	if currentStatus == events.Online || currentStatus == events.Starting {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "Server is already online or starting"})
 		return
 	}
 
 	// Trigger the simulation (which updates status via SetStatus)
-	ServerStatusMgr.SimulateStart()
+	events.ServerStatusManager.SimulateStart()
 
 	c.JSON(http.StatusOK, gin.H{"message": "Server starting..."})
 }
 
 func StopServer(c *gin.Context) {
 	// Add checks: Is it already offline or stopping?
-	currentStatus := ServerStatusMgr.GetStatus()
+	currentStatus := events.ServerStatusManager.GetStatus()
 	if currentStatus == events.Offline || currentStatus == events.Stopping {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "Server is already offline or stopping"})
 		return
 	}
 
-	ServerStatusMgr.SimulateStop()
+	events.ServerStatusManager.SimulateStop()
 	c.JSON(http.StatusOK, gin.H{"message": "Server stopping..."})
 }
 
 func RestartServer(c *gin.Context) {
 	// Add checks: avoid restarting if already restarting, starting, stopping?
-	currentStatus := ServerStatusMgr.GetStatus()
+	currentStatus := events.ServerStatusManager.GetStatus()
 	if currentStatus ==
 		events.Restarting ||
 		currentStatus == events.Starting ||
@@ -135,6 +121,6 @@ func RestartServer(c *gin.Context) {
 		return
 	}
 
-	ServerStatusMgr.SimulateRestart()
+	events.ServerStatusManager.SimulateRestart()
 	c.JSON(http.StatusOK, gin.H{"message": "Server restarting..."})
 }

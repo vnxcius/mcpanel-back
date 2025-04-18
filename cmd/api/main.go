@@ -32,6 +32,6 @@ func main() {
 	sqlDB, _ := db.DB()
 	defer sqlDB.Close()
 
-	events.NewStatusManager()
+	events.InitializeStatusManager()
 	router.NewRouter()
 }
