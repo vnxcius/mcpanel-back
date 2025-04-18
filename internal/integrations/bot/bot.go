@@ -2,7 +2,6 @@ package bot
 
 import (
 	"fmt"
-	"log"
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
@@ -31,7 +30,7 @@ func StartBot() error {
 		return err
 	}
 
-	log.Println("Bot is now running.  Press CTRL-C to exit.")
+	fmt.Println("Bot is now running.  Press CTRL-C to exit.")
 	return nil
 }
 
@@ -49,12 +48,17 @@ func messageHandler(s *discordgo.Session, e *discordgo.MessageCreate) {
 		case "ping":
 			_, err := s.ChannelMessageSend(e.ChannelID, "Pong!")
 			if err != nil {
-				log.Println("Failed sending Pong response:", err)
+				fmt.Println("Failed sending Pong response:", err)
+			}
+		case "status":
+			_, err := s.ChannelMessageSend(e.ChannelID, getServerStatus())
+			if err != nil {
+				fmt.Println("Failed sending Status response:", err)
 			}
 		default:
 			_, err := s.ChannelMessageSend(e.ChannelID, fmt.Sprintf("Unknown command %q.", cmd))
 			if err != nil {
-				log.Println("Failed sending Unknown Command response:", err)
+				fmt.Println("Failed sending Unknown Command response:", err)
 			}
 		}
 	}
