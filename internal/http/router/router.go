@@ -58,8 +58,8 @@ func NewRouter() {
 		c.JSON(404, gin.H{"message": "Not Found: " + c.Request.URL.Path})
 	})
 
-	cfg := config.GetConfig()
-	r.Run(cfg.Port)
+	p := config.GetConfig().Port
+	r.Run(p)
 	if err := r.Run(); err != nil {
 		log.Fatal(err)
 	}

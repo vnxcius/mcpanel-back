@@ -18,8 +18,9 @@ type Config struct {
 	Environment string `mapstructure:"ENVIRONMENT"`
 	Token       string `mapstructure:"TOKEN"`
 
-	BotToken string `mapstructure:"BOT_TOKEN"`
-	BotPrefix string `mapstructure:"BOT_PREFIX"`
+	BotToken              string `mapstructure:"BOT_TOKEN"`
+	NotificationChannelID string `mapstructure:"NOTIFICATION_CHANNEL_ID"`
+	BotPrefix             string `mapstructure:"BOT_PREFIX"`
 
 	PostgresDSN       string        `mapstructure:"POSTGRES_DSN"`
 	DBName            string        `mapstructure:"DB_NAME"`
@@ -53,6 +54,13 @@ func GetConfig() *Config {
 			} else {
 				log.Println("[WARNING]: .env config file not found, relying on defaults and system ENV variables.")
 			}
+		}
+
+		if viper.GetString("BOT_TOKEN") == "" {
+			log.Fatal("Bot configuration error: Missing bot token (BOT_TOKEN env variable)")
+		}
+		if viper.GetString("NOTIFICATION_CHANNEL_ID") == "" {
+			log.Fatal("Bot configuration error: Missing notification channel ID (NOTIFICATION_CHANNEL_ID env variable)")
 		}
 
 		if err := viper.Unmarshal(&config); err != nil {

@@ -56,8 +56,7 @@ func Ping(c *gin.Context) {
 }
 
 func VerifyToken(c *gin.Context) {
-	cfg := config.GetConfig()
-	validToken := cfg.Token
+	validToken := config.GetConfig().Token
 
 	if validToken == "" {
 		log.Println("VerifyToken Error: Server token not configured.")

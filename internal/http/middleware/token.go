@@ -10,9 +10,7 @@ import (
 )
 
 func TokenAuth() gin.HandlerFunc {
-	cfg := config.GetConfig()
-
-	validToken := cfg.Token
+	validToken := config.GetConfig().Token
 	if validToken == "" {
 		log.Fatal("Server configuration error: Missing validation token (TOKEN env variable)")
 	}
