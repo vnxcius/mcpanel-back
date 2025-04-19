@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/vnxcius/sss-backend/internal/integrations/discord/config"
+	"github.com/vnxcius/sss-backend/internal/config"
 	"github.com/vnxcius/sss-backend/internal/integrations/discord/helpers"
 	"github.com/vnxcius/sss-backend/internal/integrations/discord/server"
 )
@@ -74,16 +74,23 @@ func ChatCommands(s *discordgo.Session, e *discordgo.MessageCreate) {
 
 	contentWithoutPrefix := strings.TrimPrefix(e.Content, prefix)
 	args := strings.Fields(contentWithoutPrefix)
+
+	// Only prefix sent
 	if len(args) == 0 {
-		return // Only prefix was sent
+		return
+	}
+
+	//    This catches cases like "!!command" or just "!!!".
+	if strings.HasPrefix(contentWithoutPrefix, prefix) {
+		return
 	}
 
 	cmd := strings.ToLower(args[0])
 	commandArgs := args[1:]
 
 	if handler, found := chatCommandHandlers[cmd]; found {
-		handler(s, e, commandArgs) // Execute the found handler
+		handler(s, e, commandArgs)
 	} else {
-		unknownCommand(s, e, cmd, prefix) // Command not in map
+		unknownCommand(s, e, cmd, prefix)
 	}
 }
