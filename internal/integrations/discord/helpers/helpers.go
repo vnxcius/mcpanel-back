@@ -6,10 +6,6 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
-type sseMessage struct {
-	Status string `json:"status"`
-}
-
 func GetTimeNow() string {
 	return time.Now().In(
 		time.FixedZone("America/Sao_Paulo", -3*60*60),

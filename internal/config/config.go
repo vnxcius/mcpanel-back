@@ -5,22 +5,29 @@ import (
 	"sync"
 	"time"
 
+	"github.com/bwmarrin/discordgo"
 	"github.com/spf13/viper"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
 
 var (
-	config *Config
-	once   sync.Once
+	BotID      string
+	TitleCaser cases.Caser = cases.Upper(language.English)
+	config     *Config
+	once       sync.Once
 )
 
 type Config struct {
 	Port        string `mapstructure:"PORT"`
 	Environment string `mapstructure:"ENVIRONMENT"`
 	Token       string `mapstructure:"TOKEN"`
+	APIUrl      string `mapstructure:"API_URL"`
 
 	BotToken              string `mapstructure:"BOT_TOKEN"`
 	NotificationChannelID string `mapstructure:"NOTIFICATION_CHANNEL_ID"`
 	BotPrefix             string `mapstructure:"BOT_PREFIX"`
+	AuthorizedUserIDs     string `mapstructure:"AUTHORIZED_USER_IDS"`
 
 	PostgresDSN       string        `mapstructure:"POSTGRES_DSN"`
 	DBName            string        `mapstructure:"DB_NAME"`
@@ -34,10 +41,19 @@ type Config struct {
 	DBLogMode         bool          `mapstructure:"DB_LOG_MODE"`
 }
 
+func NewDiscordSession() (*discordgo.Session, error) {
+	session, err := discordgo.New("Bot " + GetConfig().BotToken)
+	if err != nil {
+		return nil, err
+	}
+	return session, nil
+}
+
 func GetConfig() *Config {
 	once.Do(func() {
 		viper.SetDefault("PORT", "4000")
 		viper.SetDefault("ENVIRONMENT", "development")
+		viper.SetDefault("API_URL", "http://localhost:4000")
 		viper.SetDefault("DB_MAX_IDLE_CONNS", 10)
 		viper.SetDefault("DB_MAX_OPEN_CONNS", 100)
 		viper.SetDefault("DB_CONN_MAX_LIFETIME", "1h")
@@ -54,13 +70,6 @@ func GetConfig() *Config {
 			} else {
 				log.Println("[WARNING]: .env config file not found, relying on defaults and system ENV variables.")
 			}
-		}
-
-		if viper.GetString("BOT_TOKEN") == "" {
-			log.Fatal("Bot configuration error: Missing bot token (BOT_TOKEN env variable)")
-		}
-		if viper.GetString("NOTIFICATION_CHANNEL_ID") == "" {
-			log.Fatal("Bot configuration error: Missing notification channel ID (NOTIFICATION_CHANNEL_ID env variable)")
 		}
 
 		if err := viper.Unmarshal(&config); err != nil {

@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/vnxcius/sss-backend/internal/integrations/discord/config"
+	"github.com/vnxcius/sss-backend/internal/config"
 	"github.com/vnxcius/sss-backend/internal/integrations/discord/helpers"
 )
 
@@ -94,7 +94,7 @@ func ConnectToSSE(s *discordgo.Session) {
 	}
 
 	cfg := config.GetConfig()
-	sseURL := cfg.SSEURL
+	sseURL := cfg.APIUrl + "/v1/sse"
 	notificationChannelID = cfg.NotificationChannelID
 	log.Println("Notification channel ID:", notificationChannelID)
 

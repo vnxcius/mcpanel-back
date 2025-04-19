@@ -5,8 +5,8 @@ import (
 	"log"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/vnxcius/sss-backend/internal/config"
 	"github.com/vnxcius/sss-backend/internal/integrations/discord/commands"
-	"github.com/vnxcius/sss-backend/internal/integrations/discord/config"
 	"github.com/vnxcius/sss-backend/internal/integrations/discord/server"
 )
 
