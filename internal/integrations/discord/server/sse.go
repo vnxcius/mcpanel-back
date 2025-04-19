@@ -50,13 +50,14 @@ func establishSSEConnection(url string) (*http.Response, error) {
 
 func processSSEStream(s *discordgo.Session, resp *http.Response) {
 	defer resp.Body.Close()
-	log.Println("SSE connection established successfully. Reading stream...")
+	log.Println("SSE connection established successfully.")
 	reader := bufio.NewReader(resp.Body)
 
 	for {
 		line, err := reader.ReadString('\n')
 		if err != nil {
 			log.Printf("Error reading from SSE stream (connection closed?): %v", err)
+			handleStatusUpdate(s, "LOST CONNECTION")
 			return
 		}
 
@@ -97,19 +98,36 @@ func ConnectToSSE(s *discordgo.Session) {
 	notificationChannelID = cfg.NotificationChannelID
 	log.Println("Notification channel ID:", notificationChannelID)
 
-	log.Printf("Attempting to connect to SSE endpoint: %s", sseURL)
+	const initialRetryDelay = 10 * time.Second
+	const maxRetryDelay = 1 * time.Hour // Cap delay at 1 hour
+	const delayAfterLoss = 30 * time.Second
+	currentRetryDelay := initialRetryDelay
 
+	log.Printf("Attempting to connect to SSE endpoint: %s", sseURL)
 	for {
 		resp, err := establishSSEConnection(sseURL)
 		if err != nil {
-			log.Printf("SSE connection attempt failed: %v. Retrying in 5s...", err)
-			time.Sleep(5 * time.Second)
+			log.Printf(
+				"SSE connection attempt failed: %v. Retrying in %v...",
+				err,
+				currentRetryDelay,
+			)
+			time.Sleep(currentRetryDelay)
+
+			currentRetryDelay *= 2
+			if currentRetryDelay > maxRetryDelay {
+				currentRetryDelay = maxRetryDelay
+			}
 			continue
 		}
+		currentRetryDelay = initialRetryDelay
 		processSSEStream(s, resp)
 
-		log.Println("SSE connection lost. Waiting 5 seconds before reconnecting...")
-		time.Sleep(5 * time.Second)
+		log.Printf(
+			"SSE connection lost. Waiting %v before reconnecting...",
+			delayAfterLoss,
+		)
+		time.Sleep(delayAfterLoss)
 	}
 }
 
