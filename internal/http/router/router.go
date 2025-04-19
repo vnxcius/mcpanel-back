@@ -1,7 +1,9 @@
 package router
 
 import (
+	"html/template"
 	"log"
+	"net/http"
 	"time"
 
 	"github.com/gin-contrib/cors"
@@ -9,6 +11,7 @@ import (
 	"github.com/vnxcius/sss-backend/internal/config"
 	"github.com/vnxcius/sss-backend/internal/http/handlers"
 	"github.com/vnxcius/sss-backend/internal/http/middleware"
+	"github.com/vnxcius/sss-backend/internal/http/templates"
 )
 
 func NewRouter() {
@@ -39,9 +42,18 @@ func NewRouter() {
 		MaxAge:           24 * time.Hour,
 	}))
 
+	tmpl := template.Must(template.ParseFS(templates.TemplatesFS, "*.html")) // Adjust glob pattern if needed
+	r.SetHTMLTemplate(tmpl)
+
 	r.Use(middleware.RateLimit())
 	{
 		r.GET("/ping", handlers.Ping)
+		r.GET("/bot/terms-of-service", func(ctx *gin.Context) {
+			ctx.HTML(http.StatusOK, "tos", nil)
+		})
+		r.GET("/bot/privacy-policy", func(ctx *gin.Context) {
+			ctx.HTML(http.StatusOK, "privacy-policy", nil)
+		})
 		r.POST("/v1/verify-token", handlers.VerifyToken)
 		r.GET("/v1/sse", handlers.StatusStream)
 	}
