@@ -71,9 +71,9 @@ func NewRouter() {
 	})
 
 	p := config.GetConfig().Port
+	log.Println("Server is running on port", p)
 	r.Run(p)
 	if err := r.Run(); err != nil {
 		log.Fatal(err)
 	}
-	log.Println("Server is running on port: ", p)
 }
