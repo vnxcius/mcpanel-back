@@ -85,7 +85,7 @@ func StartServer(c *gin.Context) {
 	}
 
 	// Trigger the simulation (which updates status via SetStatus)
-	events.ServerStatusManager.SimulateStart()
+	events.ServerStatusManager.StartServer()
 
 	c.JSON(http.StatusOK, gin.H{"message": "Server starting..."})
 }
@@ -98,7 +98,7 @@ func StopServer(c *gin.Context) {
 		return
 	}
 
-	events.ServerStatusManager.SimulateStop()
+	events.ServerStatusManager.StopServer()
 	c.JSON(http.StatusOK, gin.H{"message": "Server stopping..."})
 }
 
@@ -120,6 +120,6 @@ func RestartServer(c *gin.Context) {
 		return
 	}
 
-	events.ServerStatusManager.SimulateRestart()
+	events.ServerStatusManager.RestartServer()
 	c.JSON(http.StatusOK, gin.H{"message": "Server restarting..."})
 }
