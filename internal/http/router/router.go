@@ -8,6 +8,7 @@ import (
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/vnxcius/sss-backend/internal/config"
 	"github.com/vnxcius/sss-backend/internal/http/handlers"
 	"github.com/vnxcius/sss-backend/internal/http/middleware"
 	"github.com/vnxcius/sss-backend/internal/http/templates"
@@ -18,7 +19,7 @@ func NewRouter() {
 
 	// since we're using Cloudflare Tunnel to reverse proxy the API
 	// we should trust only localhost
-	err := r.SetTrustedProxies([]string{"0.0.0.0/0"})
+	err := r.SetTrustedProxies([]string{"127.0.0.1", "::1"})
 	if err != nil {
 		log.Fatalf("Failed to set trusted proxies: %v", err)
 	}
@@ -69,9 +70,9 @@ func NewRouter() {
 		c.JSON(404, gin.H{"message": "Not Found: " + c.Request.URL.Path})
 	})
 
-	// p := config.GetConfig().Port
-	log.Println("Server is running on port", "8080")
-	r.Run("0.0.0.0:8080")
+	p := config.GetConfig().Port
+	log.Println("Server is running on port: ", p)
+	r.Run(p)
 	if err := r.Run(); err != nil {
 		log.Fatal(err)
 	}
