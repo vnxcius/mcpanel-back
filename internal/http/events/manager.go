@@ -2,7 +2,9 @@ package events
 
 import (
 	"log"
+	"net"
 	"sync"
+	"time"
 )
 
 type StatusManager struct {
@@ -19,9 +21,23 @@ func InitializeStatusManager() {
 	log.Println("Status manager initialized")
 }
 
+func isMinecraftOnline(addr string) bool {
+	conn, err := net.DialTimeout("tcp", addr, 3*time.Second)
+	if err != nil {
+		return false
+	}
+	_ = conn.Close()
+	return true
+}
+
 func NewStatusManager() *StatusManager {
+	initialStatus := Offline
+	if isMinecraftOnline("localhost:25565") {
+		initialStatus = Online
+	}
+
 	sm := &StatusManager{
-		currentStatus: Offline,
+		currentStatus: initialStatus,
 		clients:       make(map[chan ServerStatus]bool),
 		updatesChan:   make(chan ServerStatus, 1),
 	}
