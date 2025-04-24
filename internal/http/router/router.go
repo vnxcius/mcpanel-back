@@ -19,7 +19,7 @@ func NewRouter() {
 
 	// since we're using Cloudflare Tunnel to reverse proxy the API
 	// we should trust only localhost
-	err := r.SetTrustedProxies([]string{"127.0.0.1", "::1"})
+	err := r.SetTrustedProxies([]string{"127.0.0.1", "::1", "sss-api.vncius.dev"})
 	if err != nil {
 		log.Fatalf("Failed to set trusted proxies: %v", err)
 	}
