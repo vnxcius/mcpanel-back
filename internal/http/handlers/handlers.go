@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/vnxcius/sss-backend/internal/config"
@@ -23,6 +24,9 @@ func StatusStream(c *gin.Context) {
 	clientChan := make(chan events.ServerStatus, 1)
 	events.ServerStatusManager.AddClient(clientChan)
 	defer events.ServerStatusManager.RemoveClient(clientChan)
+
+	ticker := time.NewTicker(90 * time.Second)
+	defer ticker.Stop()
 
 	// Use context to detect client disconnect
 	ctx := c.Request.Context()
@@ -47,7 +51,15 @@ func StatusStream(c *gin.Context) {
 				return
 			}
 			flusher.Flush() // Send data immediately
+		case <-ticker.C:
+			// Heartbeat
+			_, err := fmt.Fprintf(c.Writer, ": heartbeat\n\n")
+			if err != nil {
+				fmt.Printf("Error writing heartbeat to SSE client: %v\n", err)
+				return
+			}
 		}
+		flusher.Flush()
 	}
 }
 
