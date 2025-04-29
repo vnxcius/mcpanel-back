@@ -5,7 +5,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/vnxcius/sss-backend/internal/config"
-	"github.com/vnxcius/sss-backend/internal/database/pg"
 	"github.com/vnxcius/sss-backend/internal/http/events"
 	"github.com/vnxcius/sss-backend/internal/http/router"
 )
@@ -24,13 +23,13 @@ func main() {
 	log.Printf("Gin mode set to: %s", gin.Mode())
 
 	// initialize database connection
-	db, err := pg.NewConnection(cfg)
-	if err != nil {
-		log.Fatal("Failed to connect to database: ", err)
-	}
+	// db, err := pg.NewConnection(cfg)
+	// if err != nil {
+	// 	log.Fatal("Failed to connect to database: ", err)
+	// }
 
-	sqlDB, _ := db.DB()
-	defer sqlDB.Close()
+	// sqlDB, _ := db.DB()
+	// defer sqlDB.Close()
 
 	events.InitializeStatusManager()
 	router.NewRouter()

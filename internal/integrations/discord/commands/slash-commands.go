@@ -313,7 +313,7 @@ func RegisterSlashCommands(s *discordgo.Session) {
 }
 
 func RemoveSlashCommands(s *discordgo.Session) {
-	removeCommands := true
+	removeCommands := false
 
 	if removeCommands {
 		log.Println("Removing commands...")
