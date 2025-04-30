@@ -1,6 +1,7 @@
 package main
 
 import (
+	"database/sql"
 	"log"
 	"log/slog"
 	"os"
@@ -8,12 +9,10 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 	"github.com/vnxcius/sss-backend/internal/config"
-	"github.com/vnxcius/sss-backend/internal/database/model"
-	"github.com/vnxcius/sss-backend/internal/database/pg"
 	"github.com/vnxcius/sss-backend/internal/http/events"
-	"github.com/vnxcius/sss-backend/internal/http/handlers"
 	"github.com/vnxcius/sss-backend/internal/http/router"
-	"github.com/vnxcius/sss-backend/internal/util"
+
+	_ "github.com/lib/pq"
 )
 
 const logFilePath = "./logs/system.log"
@@ -23,7 +22,6 @@ func init() {
 	if err != nil {
 		log.Fatal("Error loading .env file")
 	}
-
 }
 
 func main() {
@@ -37,41 +35,17 @@ func main() {
 	}
 	slog.Info("Gin mode set to: " + gin.Mode())
 
-	// initialize database connection
-	db, err := pg.NewConnection()
+	db, err := sql.Open("postgres", os.Getenv("POSTGRES_DSN"))
 	if err != nil {
 		log.Fatal("Failed to connect to database: ", err)
 	}
+	defer db.Close()
 
-	sqlDB, _ := db.DB()
-	defer sqlDB.Close()
-
-	db.AutoMigrate(
-		&model.User{},
-		&model.Session{},
-	)
-
-	var count int64
-	db.Model(&model.User{}).Count(&count)
-
-	if count == 0 {
-		password := os.Getenv("ADMIN_PASSWORD")
-		if password == "" {
-			log.Fatal("ADMIN_PASSWORD is not set")
-		}
-		hashedPassword := util.HashPassword(password)
-		user := &model.User{
-			Password: hashedPassword,
-		}
-
-		if err := db.Create(&user).Error; err != nil {
-			log.Fatal("Failed to create admin user: ", err)
-		}
-
-		slog.Info("Admin user created")
+	if err := db.Ping(); err != nil {
+		log.Fatal("DB unreachable:", err)
 	}
+	slog.Info("Connected to database")
 
 	events.InitializeStatusManager()
-	hdl := handlers.NewHandlers(os.Getenv("SECRET_KEY"))
-	router.NewRouter(hdl)
+	router.NewRouter(db)
 }

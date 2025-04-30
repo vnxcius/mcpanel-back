@@ -1,11 +1,13 @@
 package router
 
 import (
+	"database/sql"
 	"html/template"
 	"log"
 	"log/slog"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/gin-contrib/cors"
@@ -15,7 +17,7 @@ import (
 	"github.com/vnxcius/sss-backend/internal/http/templates"
 )
 
-func NewRouter(handlers *handlers.Handlers) {
+func NewRouter(db *sql.DB) {
 	r := gin.New()
 	r.Use(middleware.SlogLoggerMiddleware())
 	r.Use(gin.Recovery())
@@ -27,8 +29,12 @@ func NewRouter(handlers *handlers.Handlers) {
 		log.Fatalf("Failed to set trusted proxies: %v", err)
 	}
 
+	allowedOriginsEnv := os.Getenv("ALLOWED_ORIGINS")
+	allowedOrigins := strings.Split(allowedOriginsEnv, ",")
+
+	slog.Info("Allowing origins", "origins", allowedOrigins)
 	r.Use(cors.New(cors.Config{
-		AllowOrigins: []string{os.Getenv("FRONTEND_URL")},
+		AllowOrigins: allowedOrigins,
 		AllowMethods: []string{"GET", "POST", "OPTIONS"},
 		AllowHeaders: []string{"Content-Type", "Authorization"},
 		ExposeHeaders: []string{
@@ -53,13 +59,10 @@ func NewRouter(handlers *handlers.Handlers) {
 		r.GET("/bot/privacy-policy", func(ctx *gin.Context) {
 			ctx.HTML(http.StatusOK, "privacy-policy", nil)
 		})
-		r.POST("/v2/login", handlers.Login)
-		r.POST("/v2/logout/:id", handlers.Logout)
-		r.POST("/v2/renew-access-token", handlers.RenewAccessToken)
-		r.POST("/v2/revoke-session/:id", handlers.RevokeSession)
-		r.GET("/v2/sse", handlers.StatusStream)
+		r.GET("/v2/server-status-stream", handlers.StatusStream)
 	}
 
+	r.Use(middleware.WithDB(db))
 	protected := r.Group("/api/v2")
 	protected.Use(middleware.TokenAuth())
 	{
