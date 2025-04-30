@@ -11,10 +11,8 @@ import (
 )
 
 const (
-	// rateLimit is the number of requests per second
-	rateLimit = 2
-	// burst is the maximum number of requests that can be made in a single burst
-	burst = 4
+	rateLimit = 2 // requests per second
+	burst     = 4 // single burst
 )
 
 type client struct {
@@ -26,7 +24,6 @@ func RateLimit() gin.HandlerFunc {
 	var mu sync.Mutex
 	var clients = make(map[string]*client)
 
-	// Background routine to remove expired clients
 	go func() {
 		for {
 			time.Sleep(time.Minute)
@@ -36,7 +33,6 @@ func RateLimit() gin.HandlerFunc {
 					delete(clients, ip)
 				}
 			}
-			// IMPORTANT: Unlock the mutext when the cleanup is done
 			mu.Unlock()
 		}
 	}()

@@ -2,18 +2,21 @@ package pg
 
 import (
 	"log"
+	"log/slog"
 	"os"
+	"strconv"
 	"time"
 
-	"github.com/vnxcius/sss-backend/internal/config"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
 
-func NewConnection(cfg *config.Config) (*gorm.DB, error) {
+var DB *gorm.DB
+
+func NewConnection() (*gorm.DB, error) {
 	var logLevel logger.LogLevel
-	if cfg.DBLogMode {
+	if os.Getenv("ENVIRONMENT") == "development" {
 		logLevel = logger.Info
 	} else {
 		logLevel = logger.Silent
@@ -28,12 +31,12 @@ func NewConnection(cfg *config.Config) (*gorm.DB, error) {
 		},
 	)
 
-	db, err := gorm.Open(postgres.Open(cfg.PostgresDSN), &gorm.Config{
+	db, err := gorm.Open(postgres.Open(os.Getenv("POSTGRES_DSN")), &gorm.Config{
 		Logger: newLogger,
 	})
 
 	if err != nil {
-		log.Printf("Failed to connect to database! HOST: %s", cfg.DBHost)
+		log.Printf("Failed to connect to database! HOST: %s", os.Getenv("DB_HOST"))
 		return nil, err
 	}
 
@@ -43,16 +46,21 @@ func NewConnection(cfg *config.Config) (*gorm.DB, error) {
 		return nil, err
 	}
 
-	sqlDB.SetMaxIdleConns(cfg.DBMaxIdleConns)
-	sqlDB.SetMaxOpenConns(cfg.DBMaxOpenConns)
-	sqlDB.SetConnMaxLifetime(cfg.DBConnMaxLifetime)
+	DBMaxIdleConns, _ := strconv.Atoi(os.Getenv("DB_MAX_IDLE_CONNS"))
+	DBMaxOpenConns, _ := strconv.Atoi(os.Getenv("DB_MAX_OPEN_CONNS"))
+	DBConnMaxLifetime, _ := time.ParseDuration(os.Getenv("DB_CONN_MAX_LIFETIME"))
+	sqlDB.SetMaxIdleConns(DBMaxIdleConns)
+	sqlDB.SetMaxOpenConns(DBMaxOpenConns)
+	sqlDB.SetConnMaxLifetime(DBConnMaxLifetime)
 
 	if err := sqlDB.Ping(); err != nil {
-		log.Printf("Failed to ping database: %v", err)
-		_ = sqlDB.Close() // Attempt to close the connection
+		slog.Warn("Failed to ping database", "error", err)
+		_ = sqlDB.Close()
 		return nil, err
 	}
 
-	log.Println("Database connection established successfully")
+	slog.Info("Database connection established successfully")
+
+	DB = db
 	return db, nil
 }

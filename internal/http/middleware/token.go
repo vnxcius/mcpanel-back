@@ -1,19 +1,15 @@
 package middleware
 
 import (
-	"log"
 	"net/http"
+	"os"
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/vnxcius/sss-backend/internal/config"
 )
 
 func TokenAuth() gin.HandlerFunc {
-	validToken := config.GetConfig().Token
-	if validToken == "" {
-		log.Fatal("Server configuration error: Missing validation token (TOKEN env variable)")
-	}
+	validToken := os.Getenv("TOKEN")
 
 	const bearerTokenPrefix = "Bearer "
 

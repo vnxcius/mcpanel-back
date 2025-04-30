@@ -26,7 +26,6 @@ func SetupLogger(filePath string) {
 	if err != nil {
 		panic("Failed to open log file for writing: " + err.Error())
 	}
-	defer logFile.Close()
 
 	multiWriter := io.MultiWriter(os.Stdout, logFile)
 

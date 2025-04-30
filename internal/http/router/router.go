@@ -3,19 +3,22 @@ package router
 import (
 	"html/template"
 	"log"
+	"log/slog"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
-	"github.com/vnxcius/sss-backend/internal/config"
 	"github.com/vnxcius/sss-backend/internal/http/handlers"
 	"github.com/vnxcius/sss-backend/internal/http/middleware"
 	"github.com/vnxcius/sss-backend/internal/http/templates"
 )
 
-func NewRouter() {
-	r := gin.Default()
+func NewRouter(handlers *handlers.Handlers) {
+	r := gin.New()
+	r.Use(middleware.SlogLoggerMiddleware())
+	r.Use(gin.Recovery())
 
 	// since we're using Cloudflare Tunnel to reverse proxy the API
 	// we should trust only localhost
@@ -25,11 +28,7 @@ func NewRouter() {
 	}
 
 	r.Use(cors.New(cors.Config{
-		AllowOrigins: []string{
-			"http://localhost:3000",
-			"https://sss.vncius.dev",
-			"https://sss-api.vncius.dev",
-		},
+		AllowOrigins: []string{os.Getenv("FRONTEND_URL")},
 		AllowMethods: []string{"GET", "POST", "OPTIONS"},
 		AllowHeaders: []string{"Content-Type", "Authorization"},
 		ExposeHeaders: []string{
@@ -42,7 +41,7 @@ func NewRouter() {
 		MaxAge:           24 * time.Hour,
 	}))
 
-	tmpl := template.Must(template.ParseFS(templates.TemplatesFS, "*.html")) // Adjust glob pattern if needed
+	tmpl := template.Must(template.ParseFS(templates.TemplatesFS, "*.html"))
 	r.SetHTMLTemplate(tmpl)
 
 	r.Use(middleware.RateLimit())
@@ -54,11 +53,14 @@ func NewRouter() {
 		r.GET("/bot/privacy-policy", func(ctx *gin.Context) {
 			ctx.HTML(http.StatusOK, "privacy-policy", nil)
 		})
-		r.POST("/v1/verify-token", handlers.VerifyToken)
-		r.GET("/v1/sse", handlers.StatusStream)
+		r.POST("/v2/login", handlers.Login)
+		r.POST("/v2/logout/:id", handlers.Logout)
+		r.POST("/v2/renew-access-token", handlers.RenewAccessToken)
+		r.POST("/v2/revoke-session/:id", handlers.RevokeSession)
+		r.GET("/v2/sse", handlers.StatusStream)
 	}
 
-	protected := r.Group("/api/v1")
+	protected := r.Group("/api/v2")
 	protected.Use(middleware.TokenAuth())
 	{
 		protected.POST("/start", handlers.StartServer)
@@ -70,9 +72,7 @@ func NewRouter() {
 		c.JSON(404, gin.H{"message": "Not Found: " + c.Request.URL.Path})
 	})
 
-	p := config.GetConfig().Port
-	log.Println("Server is running on port: ", p)
-	r.Run(p)
+	slog.Info("Starting server on port " + os.Getenv("PORT"))
 	if err := r.Run(); err != nil {
 		log.Fatal(err)
 	}

@@ -1,10 +1,23 @@
 package model
 
-import "gorm.io/gorm"
+import (
+	"time"
 
-type Example struct {
+	"gorm.io/gorm"
+)
+
+type User struct {
 	*gorm.Model
+	Password string `gorm:"type:varchar(255);notnull"`
+}
 
-	Name string `gorm:"type:varchar(50);notnull"`
-	Role string `gorm:"type:varchar(10);notnull;default:user"`
+type Session struct {
+	ID           string `gorm:"type:varchar(255);notnull;primaryKey"`
+	UserID       uint   `gorm:"notnull;"`
+	RefreshToken string `gorm:"type:varchar(255);notnull"`
+	IsRevoked    bool   `gorm:"default:false;notnull"`
+	CreatedAt    time.Time
+	ExpiresAt    time.Time
+
+	User User
 }
