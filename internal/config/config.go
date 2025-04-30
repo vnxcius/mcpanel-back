@@ -1,93 +1,51 @@
 package config
 
 import (
+	"errors"
+	"io"
 	"log"
-	"sync"
+	"log/slog"
+	"os"
+	"path/filepath"
 	"time"
-
-	"github.com/bwmarrin/discordgo"
-	"github.com/spf13/viper"
-	"golang.org/x/text/cases"
-	"golang.org/x/text/language"
 )
 
-var (
-	BotID      string
-	TitleCaser cases.Caser = cases.Upper(language.English)
-	config     *Config
-	once       sync.Once
-)
-
-type Config struct {
-	Port        string `mapstructure:"PORT"`
-	Environment string `mapstructure:"ENVIRONMENT"`
-	Token       string `mapstructure:"TOKEN"`
-	APIUrl      string `mapstructure:"API_URL"`
-
-	BotToken              string `mapstructure:"BOT_TOKEN"`
-	NotificationChannelID string `mapstructure:"NOTIFICATION_CHANNEL_ID"`
-	BotPrefix             string `mapstructure:"BOT_PREFIX"`
-	AuthorizedUserIDs     string `mapstructure:"AUTHORIZED_USER_IDS"`
-
-	PostgresDSN       string        `mapstructure:"POSTGRES_DSN"`
-	DBName            string        `mapstructure:"DB_NAME"`
-	DBUser            string        `mapstructure:"DB_USER"`
-	DBPassword        string        `mapstructure:"DB_PASSWORD"`
-	DBHost            string        `mapstructure:"DB_HOST"`
-	DBPort            string        `mapstructure:"DB_PORT"`
-	DBMaxIdleConns    int           `mapstructure:"DB_MAX_IDLE_CONNS"`
-	DBMaxOpenConns    int           `mapstructure:"DB_MAX_OPEN_CONNS"`
-	DBConnMaxLifetime time.Duration `mapstructure:"DB_CONN_MAX_LIFETIME"`
-	DBLogMode         bool          `mapstructure:"DB_LOG_MODE"`
-}
-
-func NewDiscordSession() (*discordgo.Session, error) {
-	session, err := discordgo.New("Bot " + GetConfig().BotToken)
+func SetupLogger(filePath string) {
+	logDir := filepath.Dir(filePath)
+	err := os.MkdirAll(logDir, 0755)
 	if err != nil {
-		return nil, err
+		panic("Failed to create log directory: " + err.Error())
 	}
-	return session, nil
-}
 
-func GetConfig() *Config {
-	once.Do(func() {
-		viper.SetDefault("PORT", "4000")
-		viper.SetDefault("ENVIRONMENT", "development")
-		viper.SetDefault("API_URL", "http://localhost:4000")
-		viper.SetDefault("DB_MAX_IDLE_CONNS", 10)
-		viper.SetDefault("DB_MAX_OPEN_CONNS", 100)
-		viper.SetDefault("DB_CONN_MAX_LIFETIME", "1h")
-		viper.SetDefault("DB_LOG_MODE", true)
+	err = os.Remove(filePath)
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		slog.Error("Failed to remove old log file", "path", filePath, "error", err)
+	}
 
-		viper.SetConfigName(".env")
-		viper.SetConfigType("env")
-		viper.AddConfigPath(".")
-		viper.AutomaticEnv()
+	logFile, err := os.OpenFile(filePath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0666)
+	if err != nil {
+		panic("Failed to open log file for writing: " + err.Error())
+	}
+	defer logFile.Close()
 
-		if err := viper.ReadInConfig(); err != nil {
-			if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
-				log.Fatalf("Fatal error config file: %s \n", err)
-			} else {
-				log.Println("[WARNING]: .env config file not found, relying on defaults and system ENV variables.")
+	multiWriter := io.MultiWriter(os.Stdout, logFile)
+
+	location, err := time.LoadLocation("America/Sao_Paulo")
+	if err != nil {
+		log.Fatal("Failed to load location: ", err)
+	}
+
+	opts := &slog.HandlerOptions{
+		ReplaceAttr: func(groups []string, a slog.Attr) slog.Attr {
+			if a.Key == slog.TimeKey {
+				t := a.Value.Time().In(location)
+				a.Value = slog.StringValue(t.Format(time.RFC3339))
 			}
-		}
+			return a
+		},
+		Level: slog.LevelDebug,
+	}
 
-		if err := viper.Unmarshal(&config); err != nil {
-			log.Fatalf("Error unmarshalling config, %s", err)
-		}
-
-		lifetimeStr := viper.GetString("DB_CONN_MAX_LIFETIME")
-		parsedLifetime, err := time.ParseDuration(lifetimeStr)
-		if err != nil {
-			log.Printf(
-				"Warning: Invalid DB_CONN_MAX_LIFETIME format '%s', using default 1h. Error: %v\n",
-				lifetimeStr,
-				err,
-			)
-			parsedLifetime = time.Hour
-		}
-		config.DBConnMaxLifetime = parsedLifetime
-	})
-
-	return config
+	logger := slog.New(slog.NewJSONHandler(multiWriter, opts))
+	slog.SetDefault(logger)
 }
