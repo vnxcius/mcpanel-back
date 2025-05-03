@@ -14,6 +14,15 @@ func Ping(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "pong"})
 }
 
+func Status(c *gin.Context) {
+	status := events.ServerStatusManager.GetStatus()
+	if status == "" {
+		status = "Cannot determine status"
+	}
+	slog.Info("Sending current server status", "status", status)
+	c.JSON(http.StatusOK, gin.H{"message": status})
+}
+
 func StatusStream(c *gin.Context) {
 	c.Writer.Header().Set("Content-Type", "text/event-stream")
 	c.Writer.Header().Set("Cache-Control", "no-cache")
@@ -61,46 +70,50 @@ func StatusStream(c *gin.Context) {
 func StartServer(c *gin.Context) {
 	currentStatus := events.ServerStatusManager.GetStatus()
 	if currentStatus == events.Online || currentStatus == events.Starting {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "Server is already online or starting"})
+		slog.Info("Received request to start server, but server is already online or starting")
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "O servidor já está ligado ou iniciando",
+		})
 		return
 	}
 
-	// events.ServerStatusManager.SimulateStart()
-	events.ServerStatusManager.StartServer()
+	events.ServerStatusManager.SimulateStart()
+	// events.ServerStatusManager.StartServer()
 
-	c.JSON(http.StatusOK, gin.H{"message": "Server starting..."})
+	slog.Info("Server is starting...")
+	c.JSON(http.StatusOK, gin.H{"message": "O servidor está iniciando..."})
 }
 
 func StopServer(c *gin.Context) {
 	currentStatus := events.ServerStatusManager.GetStatus()
 	if currentStatus == events.Offline || currentStatus == events.Stopping {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "Server is already offline or stopping"})
-		return
-	}
-
-	// events.ServerStatusManager.SimulateStop()
-	events.ServerStatusManager.StopServer()
-	c.JSON(http.StatusOK, gin.H{"message": "Server stopping..."})
-}
-
-func RestartServer(c *gin.Context) {
-	currentStatus := events.ServerStatusManager.GetStatus()
-	if currentStatus ==
-		events.Restarting ||
-		currentStatus == events.Starting ||
-		currentStatus == events.Stopping {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "Server is currently changing state"})
-		return
-	}
-
-	if currentStatus != events.Online && currentStatus != events.Offline {
+		slog.Info("Received request to stop server, but server is already offline or stopping")
 		c.JSON(http.StatusBadRequest, gin.H{
-			"message": "Server cannot be restarted from current state",
+			"message": "O servidor já está desligado ou parando",
 		})
 		return
 	}
 
-	// events.ServerStatusManager.SimulateRestart()
-	events.ServerStatusManager.RestartServer()
-	c.JSON(http.StatusOK, gin.H{"message": "Server restarting..."})
+	events.ServerStatusManager.SimulateStop()
+	// events.ServerStatusManager.StopServer()
+
+	slog.Info("Server stopping...")
+	c.JSON(http.StatusOK, gin.H{"message": "O servidor está parando..."})
+}
+
+func RestartServer(c *gin.Context) {
+	currentStatus := events.ServerStatusManager.GetStatus()
+	if currentStatus != events.Online && currentStatus != events.Offline {
+		slog.Info("Received request to restart server, but server is currently changing state")
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "O servidor está ocupado em outra operação",
+		})
+		return
+	}
+
+	events.ServerStatusManager.SimulateRestart()
+	// events.ServerStatusManager.RestartServer()
+
+	slog.Info("Server restarting...")
+	c.JSON(http.StatusOK, gin.H{"message": "O servidor está reiniciando..."})
 }

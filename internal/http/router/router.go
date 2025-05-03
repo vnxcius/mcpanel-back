@@ -50,22 +50,25 @@ func NewRouter(db *sql.DB) {
 	tmpl := template.Must(template.ParseFS(templates.TemplatesFS, "*.html"))
 	r.SetHTMLTemplate(tmpl)
 
-	r.Use(middleware.RateLimit())
 	{
-		r.GET("/ping", handlers.Ping)
-		r.GET("/bot/terms-of-service", func(ctx *gin.Context) {
+		v2 := r.Group("/api/v2").Use(middleware.RateLimit())
+		v2.GET("/ping", handlers.Ping)
+		v2.GET("/bot/terms-of-service", func(ctx *gin.Context) {
 			ctx.HTML(http.StatusOK, "tos", nil)
 		})
-		r.GET("/bot/privacy-policy", func(ctx *gin.Context) {
+		v2.GET("/bot/privacy-policy", func(ctx *gin.Context) {
 			ctx.HTML(http.StatusOK, "privacy-policy", nil)
 		})
-		r.GET("/v2/server-status-stream", handlers.StatusStream)
+		v2.GET("/server-status-stream", handlers.StatusStream)
+		v2.GET("/server-status", handlers.Status)
 	}
 
-	r.Use(middleware.WithDB(db))
-	protected := r.Group("/api/v2")
-	protected.Use(middleware.TokenAuth())
 	{
+		protected := r.Group("/api/v2/server")
+		protected.Use(middleware.WithDB(db))
+		protected.Use(middleware.RateLimit())
+		protected.Use(middleware.TokenAuth())
+
 		protected.POST("/start", handlers.StartServer)
 		protected.POST("/stop", handlers.StopServer)
 		protected.POST("/restart", handlers.RestartServer)
