@@ -77,8 +77,8 @@ func StartServer(c *gin.Context) {
 		return
 	}
 
-	events.ServerStatusManager.SimulateStart()
-	// events.ServerStatusManager.StartServer()
+	// events.ServerStatusManager.SimulateStart()
+	events.ServerStatusManager.StartServer()
 
 	slog.Info("Server is starting...")
 	c.JSON(http.StatusOK, gin.H{"message": "O servidor está iniciando..."})
@@ -94,8 +94,8 @@ func StopServer(c *gin.Context) {
 		return
 	}
 
-	events.ServerStatusManager.SimulateStop()
-	// events.ServerStatusManager.StopServer()
+	// events.ServerStatusManager.SimulateStop()
+	events.ServerStatusManager.StopServer()
 
 	slog.Info("Server stopping...")
 	c.JSON(http.StatusOK, gin.H{"message": "O servidor está parando..."})
@@ -111,8 +111,8 @@ func RestartServer(c *gin.Context) {
 		return
 	}
 
-	events.ServerStatusManager.SimulateRestart()
-	// events.ServerStatusManager.RestartServer()
+	// events.ServerStatusManager.SimulateRestart()
+	events.ServerStatusManager.RestartServer()
 
 	slog.Info("Server restarting...")
 	c.JSON(http.StatusOK, gin.H{"message": "O servidor está reiniciando..."})
