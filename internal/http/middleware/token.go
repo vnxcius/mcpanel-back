@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"log/slog"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -46,8 +47,14 @@ func TokenAuth() gin.HandlerFunc {
 
 		token := strings.TrimPrefix(authHeader, bearerTokenPrefix)
 
-		var session Session
 		slog.Info("Validating session token")
+		if token == os.Getenv("DISCORD_BOT_TOKEN") {
+			slog.Info("Discord bot request received, skipping session token validation")
+			c.Next()
+			return
+		}
+		
+		var session Session
 		err := db.QueryRow(`SELECT id FROM public."Session" WHERE id = $1`, token).Scan(&session)
 		if err != nil || session.ExpiresAt.Before(time.Now()) {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
