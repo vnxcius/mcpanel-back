@@ -54,8 +54,10 @@ func TokenAuth() gin.HandlerFunc {
 			return
 		}
 
-		err := db.QueryRow(`SELECT id FROM public."Session" WHERE id = $1`, token).Scan()
+		var session string
+		err := db.QueryRow(`SELECT id FROM public."Session" WHERE id = $1`, token).Scan(&session)	
 		if err != nil {
+			slog.Error("Error validating session token", "error", err, "sessionId", session)
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
 				"message": "Invalid session token",
 			})
