@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"fmt"
+	"log"
 	"log/slog"
 	"net/http"
 	"os"
@@ -10,11 +11,24 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/joho/godotenv"
 	"github.com/vnxcius/mcpanel-back/internal/http/events"
 )
+var (
+	modsPath string
+	logsPath string
+)
 
-var modsPath = os.Getenv("MODS_PATH")
-var logsPath = os.Getenv("LOGS_PATH")
+func init() {
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
+
+	modsPath = os.Getenv("MODS_PATH")
+	logsPath = os.Getenv("LOGS_PATH")
+}
+
 
 func Ping(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "pong"})
