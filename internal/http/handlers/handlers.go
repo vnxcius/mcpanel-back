@@ -4,14 +4,118 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/vnxcius/sss-backend/internal/http/events"
+	"github.com/vnxcius/mcpanel-back/internal/http/events"
 )
+
+var modsPath = `C:\Users\simon\curseforge\minecraft\Instances\MMFC-PLUS\mods`
+var logsPath = `C:\Users\simon\curseforge\minecraft\Instances\MMFC-PLUS\logs`
 
 func Ping(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "pong"})
+}
+
+func UpdateModlist(c *gin.Context) {
+	entries, err := os.ReadDir(modsPath)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	out := make([]Mod, 0, len(entries))
+
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		if strings.EqualFold(filepath.Ext(e.Name()), ".jar") {
+			name := strings.TrimSuffix(e.Name(), filepath.Ext(e.Name()))
+			out = append(out, Mod{Name: name})
+		}
+	}
+
+	c.JSON(http.StatusOK, ModList{Mods: out})
+}
+
+func GetLatestLogs(c *gin.Context) {
+	// Read file
+	data, err := os.ReadFile(filepath.Clean(logsPath))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read log file"})
+		return
+	}
+
+	c.Data(http.StatusOK, "text/plain; charset=utf-8", data)
+}
+
+func UploadMods(c *gin.Context) {
+	form, err := c.MultipartForm()
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid form"})
+		return
+	}
+	files := form.File["files"] // <input name="files" multiple>
+
+	if len(files) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "no files"})
+		return
+	}
+
+	var uploaded []string
+	for _, fh := range files {
+		if !strings.EqualFold(filepath.Ext(fh.Filename), ".jar") {
+			continue // silently skip non‑jar
+		}
+
+		dst := filepath.Join(modsPath, filepath.Base(fh.Filename))
+		// extra safety – ensure dst is inside modsDir
+		if !strings.HasPrefix(filepath.Clean(dst), filepath.Clean(modsPath)) {
+			continue
+		}
+		if err := c.SaveUploadedFile(fh, dst); err == nil {
+			uploaded = append(uploaded, fh.Filename)
+		}
+	}
+
+	if len(uploaded) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "no .jar files uploaded"})
+		return
+	}
+	c.JSON(http.StatusCreated, gin.H{"mods": uploaded})
+}
+
+func DeleteMod(c *gin.Context) {
+	var modsDir = `C:\Users\simon\curseforge\minecraft\Instances\MMFC-PLUS\mods`
+	modName := c.Param("name") // e.g. ad_astra-forge-1.20.1-1.15.20
+
+	// rudimentary sanitisation
+	if strings.Contains(modName, "..") || strings.ContainsAny(modName, `/\`) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid mod name"})
+		return
+	}
+
+	target := filepath.Join(modsDir, modName+".jar")
+	// extra safety: ensure we're still inside modsDir after Join/Clean
+	if !strings.HasPrefix(filepath.Clean(target), filepath.Clean(modsDir)) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid path"})
+		return
+	}
+
+	if err := os.Remove(target); err != nil {
+		if os.IsNotExist(err) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "mod not found"})
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		}
+		return
+	}
+
+	c.Status(http.StatusNoContent) // 204
 }
 
 func Status(c *gin.Context) {

@@ -8,9 +8,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
-	"github.com/vnxcius/sss-backend/internal/config"
-	"github.com/vnxcius/sss-backend/internal/http/events"
-	"github.com/vnxcius/sss-backend/internal/http/router"
+	"github.com/vnxcius/mcpanel-back/internal/config"
+	"github.com/vnxcius/mcpanel-back/internal/http/events"
+	"github.com/vnxcius/mcpanel-back/internal/http/router"
 
 	_ "github.com/lib/pq"
 )

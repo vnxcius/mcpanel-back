@@ -12,9 +12,9 @@ import (
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
-	"github.com/vnxcius/sss-backend/internal/http/handlers"
-	"github.com/vnxcius/sss-backend/internal/http/middleware"
-	"github.com/vnxcius/sss-backend/internal/http/templates"
+	"github.com/vnxcius/mcpanel-back/internal/http/handlers"
+	"github.com/vnxcius/mcpanel-back/internal/http/middleware"
+	"github.com/vnxcius/mcpanel-back/internal/http/templates"
 )
 
 func NewRouter(db *sql.DB) {
@@ -35,7 +35,7 @@ func NewRouter(db *sql.DB) {
 	slog.Info("Allowing origins", "origins", allowedOrigins)
 	r.Use(cors.New(cors.Config{
 		AllowOrigins: allowedOrigins,
-		AllowMethods: []string{"GET", "POST", "OPTIONS"},
+		AllowMethods: []string{"GET", "POST", "OPTIONS", "DELETE"},
 		AllowHeaders: []string{"Content-Type", "Authorization"},
 		ExposeHeaders: []string{
 			"Content-Length",
@@ -53,6 +53,12 @@ func NewRouter(db *sql.DB) {
 	{
 		v2 := r.Group("/api/v2").Use(middleware.RateLimit())
 		v2.GET("/ping", handlers.Ping)
+		v2.GET("/logs/latest", handlers.GetLatestLogs)
+
+		v2.GET("/modlist", handlers.UpdateModlist)
+		v2.POST("/modlist/upload", handlers.UploadMods)
+		v2.DELETE("/modlist/:name", handlers.DeleteMod)
+
 		v2.GET("/bot/terms-of-service", func(ctx *gin.Context) {
 			ctx.HTML(http.StatusOK, "tos", nil)
 		})

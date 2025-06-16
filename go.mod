@@ -1,4 +1,4 @@
-module github.com/vnxcius/sss-backend
+module github.com/vnxcius/mcpanel-back
 
 go 1.24.2
 

@@ -8,7 +8,7 @@ import (
 )
 
 func runServerScript(action string) error {
-	cmd := exec.Command("sudo", "/opt/sss-backend/cmd/api/minecraft-server.sh", action)
+	cmd := exec.Command("sudo", "/opt/mcpanel-back/cmd/api/minecraft-server.sh", action)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		log.Printf("Command '%s' failed: %v\nOutput:\n%s", action, err, string(output))
