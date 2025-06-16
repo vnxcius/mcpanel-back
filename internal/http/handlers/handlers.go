@@ -13,8 +13,8 @@ import (
 	"github.com/vnxcius/mcpanel-back/internal/http/events"
 )
 
-var modsPath = `C:\Users\simon\curseforge\minecraft\Instances\MMFC-PLUS\mods`
-var logsPath = `C:\Users\simon\curseforge\minecraft\Instances\MMFC-PLUS\logs`
+var modsPath = os.Getenv("MODS_PATH")
+var logsPath = os.Getenv("LOGS_PATH")
 
 func Ping(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "pong"})
