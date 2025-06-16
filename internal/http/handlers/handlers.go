@@ -14,6 +14,7 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/vnxcius/mcpanel-back/internal/http/events"
 )
+
 var (
 	modsPath string
 	logsPath string
@@ -28,7 +29,6 @@ func init() {
 	modsPath = os.Getenv("MODS_PATH")
 	logsPath = os.Getenv("LOGS_PATH")
 }
-
 
 func Ping(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "pong"})

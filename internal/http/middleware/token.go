@@ -18,7 +18,6 @@ type Session struct {
 
 func TokenAuth() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// Get the DB from context
 		dbAny, exists := c.Get("db")
 		if !exists {
 			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
@@ -26,13 +25,12 @@ func TokenAuth() gin.HandlerFunc {
 			})
 			return
 		}
-
 		db := dbAny.(*sql.DB)
 
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
-				"message": "Token não encontrado",
+				"message": "Token not found",
 			})
 			return
 		}
@@ -54,17 +52,25 @@ func TokenAuth() gin.HandlerFunc {
 			return
 		}
 
-		var session string
-		err := db.QueryRow(`SELECT id FROM public."Session" WHERE id = $1`, token).Scan(&session)	
+		var retrievedID string
+		err := db.QueryRow(`SELECT id FROM "Session" WHERE id = $1`, token).Scan(&retrievedID)
+
 		if err != nil {
-			slog.Error("Error validating session token", "error", err, "sessionId", session)
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
-				"message": "Invalid session token",
+			if err == sql.ErrNoRows {
+				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+					"message": "Invalid or expired token.",
+				})
+				return
+			}
+
+			slog.Error("Database error during token validation query", "error", err, "token_attempted", token)
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
+				"message": "Internal server error during token validation.",
 			})
 			return
 		}
-		slog.Info("Found session token in database")
 
+		slog.Info("Token successfully validated")
 		c.Next()
 	}
 }
