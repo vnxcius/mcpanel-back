@@ -104,7 +104,6 @@ func UploadMods(c *gin.Context) {
 }
 
 func DeleteMod(c *gin.Context) {
-	var modsDir = `C:\Users\simon\curseforge\minecraft\Instances\MMFC-PLUS\mods`
 	modName := c.Param("name") // e.g. ad_astra-forge-1.20.1-1.15.20
 
 	// rudimentary sanitisation
@@ -113,9 +112,9 @@ func DeleteMod(c *gin.Context) {
 		return
 	}
 
-	target := filepath.Join(modsDir, modName+".jar")
+	target := filepath.Join(modsPath, modName+".jar")
 	// extra safety: ensure we're still inside modsDir after Join/Clean
-	if !strings.HasPrefix(filepath.Clean(target), filepath.Clean(modsDir)) {
+	if !strings.HasPrefix(filepath.Clean(target), filepath.Clean(modsPath)) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid path"})
 		return
 	}
