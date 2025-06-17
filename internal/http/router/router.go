@@ -65,8 +65,8 @@ func NewRouter(db *sql.DB) {
 		v2.GET("/bot/privacy-policy", func(ctx *gin.Context) {
 			ctx.HTML(http.StatusOK, "privacy-policy", nil)
 		})
-		v2.GET("/server-status-stream", handlers.StatusStream)
-		v2.GET("/server-status", handlers.Status)
+		v2.GET("/ws", handlers.ServeWebSocket)
+		// v2.GET("/server-status", handlers.Status)
 	}
 
 	{

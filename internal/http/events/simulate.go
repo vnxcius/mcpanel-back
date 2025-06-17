@@ -1,25 +1,31 @@
 package events
 
-import "time"
+import (
+	"log/slog"
+	"time"
+)
 
-func (sm *StatusManager) SimulateOperation(startStatus, endStatus ServerStatus, delay time.Duration) {
-	sm.SetStatus(startStatus)
+func (m *WSManager) SimulateOperation(startStatus, endStatus ServerStatus, delay time.Duration) {
+	m.SetStatus(startStatus)
 	time.Sleep(delay)
-	sm.SetStatus(endStatus)
+	m.SetStatus(endStatus)
 }
 
-func (sm *StatusManager) SimulateStart() {
+func (sm *WSManager) SimulateStart() {
+	slog.Info("Simulating server start...")
 	go sm.SimulateOperation(Starting, Online, 5*time.Second) // Start -> Online in 5s
 }
 
-func (sm *StatusManager) SimulateStop() {
+func (sm *WSManager) SimulateStop() {
+	slog.Info("Simulating server stop...")
 	go sm.SimulateOperation(Stopping, Offline, 3*time.Second) // Stop -> Offline in 3s
 }
 
-func (sm *StatusManager) SimulateRestart() {
+func (sm *WSManager) SimulateRestart() {
+	slog.Info("Simulating server restart...")
 	go func() {
 		sm.SetStatus(Restarting)
 		time.Sleep(5 * time.Second)
 		sm.SetStatus(Online)
-	}()
+	}() // Restart -> Online in 5s
 }
