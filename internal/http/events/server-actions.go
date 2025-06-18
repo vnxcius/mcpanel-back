@@ -26,12 +26,10 @@ func (m *WSManager) GetStatus() ServerStatus {
 }
 
 func (m *WSManager) SetStatus(status ServerStatus) {
-	// 1) persist the new status
 	m.Lock()
 	m.currentStatus = status
 	m.Unlock()
 
-	// 2) build & broadcast the event
 	payload, err := json.Marshal(StatusUpdateEvent{Status: status})
 	if err != nil {
 		slog.Error("Error marshalling message", "error", err)
@@ -43,6 +41,21 @@ func (m *WSManager) SetStatus(status ServerStatus) {
 	})
 
 	slog.Info("Server status updated", "status", status)
+}
+
+func (m *WSManager) UpdateModlist() error {
+	payload, err := m.getModlistPayload()
+	if err != nil {
+		slog.Error("Error marshalling message", "error", err)
+		return err
+	}
+
+	m.broadcast(Event{
+		Type:    EventModlistUpdate,
+		Payload: payload,
+	})
+
+	return nil
 }
 
 func (m *WSManager) StartServer() {

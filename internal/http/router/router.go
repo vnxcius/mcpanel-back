@@ -55,10 +55,6 @@ func NewRouter(db *sql.DB) {
 		v2.GET("/ping", handlers.Ping)
 		v2.GET("/logs/latest", handlers.GetLatestLogs)
 
-		v2.GET("/modlist", handlers.UpdateModlist)
-		v2.POST("/modlist/upload", handlers.UploadMods)
-		v2.DELETE("/modlist/:name", handlers.DeleteMod)
-
 		v2.GET("/bot/terms-of-service", func(ctx *gin.Context) {
 			ctx.HTML(http.StatusOK, "tos", nil)
 		})
@@ -70,14 +66,18 @@ func NewRouter(db *sql.DB) {
 	}
 
 	{
-		protected := r.Group("/api/v2/server")
+		protected := r.Group("/api/v2/signed")
 		protected.Use(middleware.WithDB(db))
 		protected.Use(middleware.RateLimit())
 		protected.Use(middleware.TokenAuth())
 
-		protected.POST("/start", handlers.StartServer)
-		protected.POST("/stop", handlers.StopServer)
-		protected.POST("/restart", handlers.RestartServer)
+		protected.POST("/server/start", handlers.StartServer)
+		protected.POST("/server/stop", handlers.StopServer)
+		protected.POST("/server/restart", handlers.RestartServer)
+
+		protected.GET("/modlist", handlers.UpdateModlist)
+		protected.POST("/modlist/upload", handlers.UploadMods)
+		protected.DELETE("/modlist/delete/:name", handlers.DeleteMod)
 	}
 
 	r.NoRoute(func(c *gin.Context) {

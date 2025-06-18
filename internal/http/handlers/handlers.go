@@ -32,26 +32,26 @@ func Ping(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "pong"})
 }
 
+func ServeWebSocket(c *gin.Context) {
+	conn, err := events.WebsocketUpgrader.Upgrade(c.Writer, c.Request, nil)
+
+	if err != nil {
+		slog.Error("Error upgrading connection to websocket", "error", err)
+		return
+	}
+
+	events.Manager.AddClient(conn)
+
+	slog.Info("WebSocket client connected", "ip", c.ClientIP())
+}
+
 func UpdateModlist(c *gin.Context) {
-	entries, err := os.ReadDir(modsPath)
+	err := events.Manager.UpdateModlist()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-
-	out := make([]Mod, 0, len(entries))
-
-	for _, e := range entries {
-		if e.IsDir() {
-			continue
-		}
-		if strings.EqualFold(filepath.Ext(e.Name()), ".jar") {
-			name := strings.TrimSuffix(e.Name(), filepath.Ext(e.Name()))
-			out = append(out, Mod{Name: name})
-		}
-	}
-
-	c.JSON(http.StatusOK, ModList{Mods: out})
+	c.JSON(http.StatusOK, nil)
 }
 
 func GetLatestLogs(c *gin.Context) {
@@ -81,7 +81,7 @@ func UploadMods(c *gin.Context) {
 	var uploaded []string
 	for _, fh := range files {
 		if !strings.EqualFold(filepath.Ext(fh.Filename), ".jar") {
-			continue // silently skip non‑jar
+			continue
 		}
 
 		dst := filepath.Join(modsPath, filepath.Base(fh.Filename))
@@ -98,6 +98,8 @@ func UploadMods(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "no .jar files uploaded"})
 		return
 	}
+
+	events.Manager.UpdateModlist()
 	c.JSON(http.StatusCreated, gin.H{"mods": uploaded})
 }
 
@@ -126,29 +128,8 @@ func DeleteMod(c *gin.Context) {
 		return
 	}
 
+	events.Manager.UpdateModlist()
 	c.Status(http.StatusNoContent) // 204
-}
-
-// func Status(c *gin.Context) {
-// 	status := events.ServerStatusManager.GetStatus()
-// 	if status == "" {
-// 		status = "Cannot determine status"
-// 	}
-// 	slog.Info("Sending current server status", "status", status)
-// 	c.JSON(http.StatusOK, gin.H{"message": status})
-// }
-
-func ServeWebSocket(c *gin.Context) {
-	conn, err := events.WebsocketUpgrader.Upgrade(c.Writer, c.Request, nil)
-
-	if err != nil {
-		slog.Error("Error upgrading connection to websocket", "error", err)
-		return
-	}
-
-	events.Manager.AddClient(conn)
-	
-	slog.Info("WebSocket client connected", "ip", c.ClientIP())
 }
 
 func StartServer(c *gin.Context) {

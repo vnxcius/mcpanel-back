@@ -7,6 +7,14 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+type Mod struct {
+	Name string `json:"name"`
+}
+
+type ModList struct {
+	Mods []Mod `json:"mods"`
+}
+
 type ServerStatus string
 
 type WSManager struct {
@@ -45,8 +53,9 @@ type StatusUpdateEvent struct {
 }
 
 const (
-	EventSendMessage  = "send_message"
-	EventStatusUpdate = "status_update"
+	EventSendMessage   = "send_message"
+	EventStatusUpdate  = "status_update"
+	EventModlistUpdate = "modlist_update"
 
 	Starting   ServerStatus = "starting"
 	Online     ServerStatus = "online"

@@ -9,6 +9,11 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+var (
+	pongWait     = 10 * time.Second
+	pingInterval = (pongWait * 9) / 10 // 90% of pongWait
+)
+
 func isMinecraftOnline(addr string) bool {
 	slog.Info("Checking if Minecraft server is online", "addr", addr)
 	conn, err := net.DialTimeout("tcp", addr, 3*time.Second)
@@ -41,6 +46,14 @@ func (c *Client) ReadMessages() {
 		c.manager.RemoveClient(c)
 	}()
 
+	if err := c.connection.SetReadDeadline(time.Now().Add(pongWait)); err != nil {
+		slog.Error("Error setting read deadline", "error", err)
+		return
+	}
+
+	c.connection.SetReadLimit(512)
+	c.connection.SetPongHandler(c.pongHandler)
+
 	for {
 		messageType, payload, err := c.connection.ReadMessage()
 		if err != nil {
@@ -71,6 +84,8 @@ func (c *Client) WriteMessages() {
 		c.manager.RemoveClient(c)
 	}()
 
+	ticker := time.NewTicker(pingInterval)
+
 	for {
 		select {
 		case message, ok := <-c.egress:
@@ -92,7 +107,18 @@ func (c *Client) WriteMessages() {
 				return
 			}
 
-			slog.Info("Sent message", "type", message.Type, "payload", string(data))
+			slog.Info("Sent message", "type", message.Type)
+		case <-ticker.C:
+			slog.Info("Ping sent to client", "ip", c.connection.RemoteAddr().String())
+			if err := c.connection.WriteMessage(websocket.PingMessage, []byte(``)); err != nil {
+				slog.Error("Error sending ping", "error", err)
+				return
+			}
 		}
 	}
+}
+
+func (c *Client) pongHandler(pongMessage string) error {
+	slog.Info("Pong received from client", "ip", c.connection.RemoteAddr().String())
+	return c.connection.SetReadDeadline(time.Now().Add(pongWait))
 }

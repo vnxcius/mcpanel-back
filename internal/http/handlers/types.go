@@ -11,10 +11,3 @@ type RenewAccessTokenRequest struct {
 type RenewAccessTokenResponse struct {
 	AccessToken string `json:"access_token"`
 }
-type Mod struct {
-	Name string `json:"name"`
-}
-
-type ModList struct {
-	Mods []Mod `json:"mods"`
-}

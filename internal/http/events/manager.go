@@ -6,6 +6,8 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/gorilla/websocket"
 )
@@ -14,16 +16,18 @@ var (
 	WebsocketUpgrader = websocket.Upgrader{
 		ReadBufferSize:  1024,
 		WriteBufferSize: 1024,
-		CheckOrigin: func(r *http.Request) bool {
-			if origin := r.Header.Get("Origin"); origin != os.Getenv("ALLOWED_ORIGINS") {
-				return false
-			}
-			return true
-		},
+		CheckOrigin:     checkOrigin,
 	}
 
 	Manager *WSManager
 )
+
+func checkOrigin(r *http.Request) bool {
+	if origin := r.Header.Get("Origin"); origin != os.Getenv("ALLOWED_ORIGINS") {
+		return false
+	}
+	return true
+}
 
 func NewManager(mcServerAddr string) *WSManager {
 	status := Offline
@@ -54,6 +58,13 @@ func (m *WSManager) AddClient(conn *websocket.Conn) {
 	payload, _ := json.Marshal(StatusUpdateEvent{Status: m.GetStatus()})
 	c.send(Event{Type: EventStatusUpdate, Payload: payload})
 
+	modPayload, err := m.getModlistPayload()
+	if err == nil {
+		c.send(Event{Type: EventModlistUpdate, Payload: modPayload})
+	} else {
+		slog.Error("Failed to get mod list on client connect", "error", err)
+	}
+
 	go c.WriteMessages()
 	go c.ReadMessages()
 }
@@ -80,7 +91,7 @@ func (m *WSManager) routeEvent(event Event, c *Client) error {
 }
 
 func (m *WSManager) broadcast(evt Event) {
-	slog.Info("Broadcasting event", "type", evt.Type, "payload", string(evt.Payload))
+	slog.Info("Broadcasting event", "type", evt.Type)
 	m.RLock()
 	defer m.RUnlock()
 
@@ -103,4 +114,21 @@ func (m *WSManager) syncWithMinecraft() {
 		slog.Info("Minecraft server corrected to offline")
 		m.SetStatus(Offline)
 	}
+}
+
+func (m *WSManager) getModlistPayload() ([]byte, error) {
+	entries, err := os.ReadDir(os.Getenv("MODS_PATH"))
+	if err != nil {
+		return nil, err
+	}
+
+	var mods []Mod
+	for _, e := range entries {
+		if !e.IsDir() && strings.EqualFold(filepath.Ext(e.Name()), ".jar") {
+			name := strings.TrimSuffix(e.Name(), filepath.Ext(e.Name()))
+			mods = append(mods, Mod{Name: name})
+		}
+	}
+
+	return json.Marshal(ModList{Mods: mods})
 }
