@@ -54,17 +54,6 @@ func UpdateModlist(c *gin.Context) {
 	c.JSON(http.StatusOK, nil)
 }
 
-func GetLatestLogs(c *gin.Context) {
-	// Read file
-	data, err := os.ReadFile(filepath.Clean(logsPath))
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read log file"})
-		return
-	}
-
-	c.Data(http.StatusOK, "text/plain; charset=utf-8", data)
-}
-
 func UploadMods(c *gin.Context) {
 	form, err := c.MultipartForm()
 	if err != nil {

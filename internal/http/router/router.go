@@ -53,7 +53,6 @@ func NewRouter(db *sql.DB) {
 	{
 		v2 := r.Group("/api/v2").Use(middleware.RateLimit())
 		v2.GET("/ping", handlers.Ping)
-		v2.GET("/logs/latest", handlers.GetLatestLogs)
 
 		v2.GET("/bot/terms-of-service", func(ctx *gin.Context) {
 			ctx.HTML(http.StatusOK, "tos", nil)

@@ -28,7 +28,7 @@ func NewClient(conn *websocket.Conn, m *WSManager) *Client {
 	return &Client{
 		connection: conn,
 		manager:    m,
-		egress:     make(chan Event, 8),
+		egress:     make(chan Event, 500),
 	}
 }
 
@@ -85,10 +85,11 @@ func (c *Client) WriteMessages() {
 	}()
 
 	ticker := time.NewTicker(pingInterval)
-
+	slog.Debug("Starting write loop", "ip", c.connection.RemoteAddr().String())
 	for {
 		select {
 		case message, ok := <-c.egress:
+			slog.Debug("Sending message", "type", message.Type)
 			if !ok {
 				if err := c.connection.WriteMessage(websocket.CloseMessage, nil); err != nil {
 					slog.Error("WS connection closed", "error", err)

@@ -56,6 +56,8 @@ const (
 	EventSendMessage   = "send_message"
 	EventStatusUpdate  = "status_update"
 	EventModlistUpdate = "modlist_update"
+	EventLogAppend     = "log_append"
+	EventLogSnapshot   = "log_snapshot"
 
 	Starting   ServerStatus = "starting"
 	Online     ServerStatus = "online"
