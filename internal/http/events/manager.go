@@ -78,43 +78,50 @@ func (m *WSManager) AddClient(conn *websocket.Conn) {
 	go func() {
 		const maxLines = 500
 		var (
-			buf    []string
-			offset int // next line to send
-			mu     sync.Mutex
+			buf      []string // ring‐buffer with the last ≤maxLines lines
+			total    int      // total lines observed so far
+			lastSent int      // last total count the clients have received
+			mu       sync.Mutex
 		)
 
-		// Accumulate incoming lines
+		// producer ---------------------------------------------------------------
 		go func() {
 			for l := range lines {
+				if l == "" {
+					continue
+				} // ignore empty split artefacts
+
 				mu.Lock()
 				buf = append(buf, l)
+				total++
 
-				if len(buf) > maxLines { // trim head
-					drop := len(buf) - maxLines
-					buf = buf[drop:]
-					if offset >= drop {
-						offset -= drop // adjust unread pointer
-					} else {
-						offset = 0
-					}
+				if len(buf) > maxLines { // drop from the head
+					buf = buf[len(buf)-maxLines:]
 				}
 				mu.Unlock()
 			}
 		}()
 
-		// Broadcast latest buffer every second
+		// consumer ---------------------------------------------------------------
 		tick := time.NewTicker(time.Second)
 		defer tick.Stop()
 
 		for range tick.C {
 			mu.Lock()
-			if offset < len(buf) {
+			if lastSent < total {
+				// number of unread lines
+				pending := total - lastSent
+				if pending > len(buf) {
+					pending = len(buf) // older ones already dropped
+				}
+				start := len(buf) - pending // slice start index
+
 				payload, _ := json.Marshal(struct {
 					Lines []string `json:"lines"`
-				}{Lines: buf[offset:]})
+				}{Lines: buf[start:]})
 
 				m.broadcast(Event{Type: EventLogAppend, Payload: payload})
-				offset = len(buf)
+				lastSent = total
 			}
 			mu.Unlock()
 		}
@@ -274,19 +281,23 @@ func readNew(f *os.File, fi os.FileInfo, offset int64, out chan<- string) (int64
 	if fi.Size() <= offset {
 		return offset, fi.ModTime()
 	}
+
 	f.Seek(offset, io.SeekStart)
 	buf := make([]byte, fi.Size()-offset)
+
 	n, err := f.Read(buf)
 	if err != nil && err != io.EOF {
 		log.Fatalf("failed to read file: %v", err)
 	}
-	lines := strings.SplitSeq(string(buf[:n]), "\n")
-	for line := range lines {
+
+	lines := strings.Split(strings.ReplaceAll(string(buf[:n]), "\r\n", "\n"), "\n")
+	for _, line := range lines {
 		select {
 		case out <- line:
 		default: // drop if channel is full
 			slog.Warn("Log channel full, dropping line")
 		}
 	}
+
 	return fi.Size(), fi.ModTime()
 }
