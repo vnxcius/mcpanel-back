@@ -46,6 +46,6 @@ func main() {
 	}
 	slog.Info("Connected to database")
 
-	events.InitializeStatusManager()
+	events.InitializeManager()
 	router.NewRouter(db)
 }

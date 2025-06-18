@@ -1,97 +1,157 @@
 package events
 
 import (
+	"encoding/json"
+	"errors"
 	"log"
-	"net"
-	"sync"
-	"time"
+	"log/slog"
+	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
+
+	"github.com/gorilla/websocket"
+	"github.com/joho/godotenv"
 )
 
-type StatusManager struct {
-	mu            sync.RWMutex
-	currentStatus ServerStatus
-	clients       map[chan ServerStatus]bool
-	updatesChan   chan ServerStatus
-}
-
-var ServerStatusManager *StatusManager
-
-func InitializeStatusManager() {
-	ServerStatusManager = NewStatusManager()
-	log.Println("Status manager initialized")
-}
-
-func isMinecraftOnline(addr string) bool {
-	conn, err := net.DialTimeout("tcp", addr, 3*time.Second)
-	if err != nil {
-		return false
+var (
+	WebsocketUpgrader = websocket.Upgrader{
+		ReadBufferSize:  1024,
+		WriteBufferSize: 1024,
+		CheckOrigin:     checkOrigin,
 	}
-	_ = conn.Close()
+
+	Manager  *WSManager
+	logsPath string
+)
+
+func init() {
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
+
+	logsPath = os.Getenv("LOGS_PATH")
+}
+
+func checkOrigin(r *http.Request) bool {
+	if origin := r.Header.Get("Origin"); origin != os.Getenv("ALLOWED_ORIGINS") {
+		return true
+	}
 	return true
 }
 
-func NewStatusManager() *StatusManager {
-	initialStatus := Offline
-	if isMinecraftOnline("localhost:25565") {
-		initialStatus = Online
+func newManager(mcServerAddr string) *WSManager {
+	status := Offline
+	if isMinecraftOnline(mcServerAddr) {
+		status = Online
 	}
-
-	sm := &StatusManager{
-		currentStatus: initialStatus,
-		clients:       make(map[chan ServerStatus]bool),
-		updatesChan:   make(chan ServerStatus, 1),
-	}
-	go sm.runBroadcaster()
-	return sm
-}
-
-func (sm *StatusManager) GetStatus() ServerStatus {
-	sm.mu.RLock()
-	defer sm.mu.RUnlock()
-	return sm.currentStatus
-}
-
-func (sm *StatusManager) SetStatus(newStatus ServerStatus) {
-	sm.mu.Lock()
-	if sm.currentStatus == newStatus {
-		sm.mu.Unlock()
-		return
-	}
-	sm.currentStatus = newStatus
-	sm.mu.Unlock()
-
-	select {
-	case sm.updatesChan <- newStatus:
-	default:
-		// Broadcaster might be busy, maybe log this if important
-		log.Println("Status update dropped")
+	return &WSManager{
+		clients:       make(ClientList),
+		handlers:      make(map[string]EventHandler),
+		serverAddr:    mcServerAddr,
+		currentStatus: status,
 	}
 }
 
-func (sm *StatusManager) runBroadcaster() {
-	for statusUpdate := range sm.updatesChan {
-		sm.mu.RLock()
-		for clientChan := range sm.clients {
-			select {
-			case clientChan <- statusUpdate:
-			default:
-				log.Println("Status update dropped")
-			}
+func InitializeManager() {
+	Manager = newManager("localhost:25565")
+}
+
+func (m *WSManager) AddClient(conn *websocket.Conn) {
+	c := NewClient(conn, m)
+
+	m.Lock()
+	m.clients[c] = true
+	m.Unlock()
+
+	go m.syncWithMinecraft()
+	go c.WriteMessages()
+	go c.ReadMessages()
+	go tailLogs()
+
+	// Update server status
+	payload, _ := json.Marshal(StatusUpdateEvent{Status: m.GetStatus()})
+	c.send(Event{Type: EventStatusUpdate, Payload: payload})
+
+	// Update modlist
+	modPayload, err := m.getModlistPayload()
+	if err == nil {
+		c.send(Event{Type: EventModlistUpdate, Payload: modPayload})
+	} else {
+		slog.Error("Failed to get mod list on client connect", "error", err)
+	}
+
+	// Send log snapshot
+	logSnapshot, err := m.getLastLogLines(200)
+	if err == nil {
+		payload, _ := json.Marshal(struct {
+			Lines []string `json:"lines"`
+		}{Lines: logSnapshot})
+
+		c.send(Event{Type: EventLogSnapshot, Payload: payload})
+	}
+}
+
+func (m *WSManager) RemoveClient(c *Client) {
+	m.Lock()
+	defer m.Unlock()
+
+	if _, ok := m.clients[c]; ok {
+		c.connection.Close()
+		delete(m.clients, c)
+	}
+}
+
+func (m *WSManager) routeEvent(event Event, c *Client) error {
+	if handler, ok := m.handlers[event.Type]; ok {
+		if err := handler(event, c); err != nil {
+			return err
 		}
-		sm.mu.RUnlock()
+		return nil
+	} else {
+		return errors.New("Unknown event type: " + event.Type)
 	}
 }
 
-func (sm *StatusManager) AddClient(clientChan chan ServerStatus) {
-	sm.mu.Lock()
-	sm.clients[clientChan] = true
-	sm.mu.Unlock()
-	clientChan <- sm.GetStatus()
+func (m *WSManager) broadcast(evt Event) {
+	m.RLock()
+	defer m.RUnlock()
+
+	for c := range m.clients {
+		select {
+		case c.egress <- evt:
+			slog.Info("Broadcasting event", "type", evt.Type)
+		default:
+			slog.Warn("client buffer full, dropping event")
+		}
+	}
 }
 
-func (sm *StatusManager) RemoveClient(clientChan chan ServerStatus) {
-	sm.mu.Lock()
-	delete(sm.clients, clientChan)
-	close(clientChan)
-	sm.mu.Unlock()
+func (m *WSManager) syncWithMinecraft() {
+	slog.Info("Syncing with Minecraft server...")
+	if isMinecraftOnline(m.serverAddr) && m.GetStatus() != Online {
+		slog.Info("Minecraft server corrected to online")
+		m.SetStatus(Online)
+	} else if !isMinecraftOnline(m.serverAddr) && m.GetStatus() != Offline {
+		slog.Info("Minecraft server corrected to offline")
+		m.SetStatus(Offline)
+	}
+}
+
+func (m *WSManager) getModlistPayload() ([]byte, error) {
+	entries, err := os.ReadDir(os.Getenv("MODS_PATH"))
+	if err != nil {
+		return nil, err
+	}
+
+	var mods []Mod
+	for _, e := range entries {
+		if !e.IsDir() && strings.EqualFold(filepath.Ext(e.Name()), ".jar") {
+			name := strings.TrimSuffix(e.Name(), filepath.Ext(e.Name()))
+			mods = append(mods, Mod{Name: name})
+		}
+	}
+
+	return json.Marshal(ModList{Mods: mods})
 }

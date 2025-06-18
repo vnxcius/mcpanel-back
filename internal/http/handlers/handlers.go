@@ -1,14 +1,12 @@
 package handlers
 
 import (
-	"fmt"
 	"log"
 	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
@@ -34,37 +32,26 @@ func Ping(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "pong"})
 }
 
+func ServeWebSocket(c *gin.Context) {
+	conn, err := events.WebsocketUpgrader.Upgrade(c.Writer, c.Request, nil)
+
+	if err != nil {
+		slog.Error("Error upgrading connection to websocket", "error", err)
+		return
+	}
+
+	events.Manager.AddClient(conn)
+
+	slog.Info("WebSocket client connected", "ip", c.ClientIP())
+}
+
 func UpdateModlist(c *gin.Context) {
-	entries, err := os.ReadDir(modsPath)
+	err := events.Manager.UpdateModlist()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-
-	out := make([]Mod, 0, len(entries))
-
-	for _, e := range entries {
-		if e.IsDir() {
-			continue
-		}
-		if strings.EqualFold(filepath.Ext(e.Name()), ".jar") {
-			name := strings.TrimSuffix(e.Name(), filepath.Ext(e.Name()))
-			out = append(out, Mod{Name: name})
-		}
-	}
-
-	c.JSON(http.StatusOK, ModList{Mods: out})
-}
-
-func GetLatestLogs(c *gin.Context) {
-	// Read file
-	data, err := os.ReadFile(filepath.Clean(logsPath))
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read log file"})
-		return
-	}
-
-	c.Data(http.StatusOK, "text/plain; charset=utf-8", data)
+	c.JSON(http.StatusOK, nil)
 }
 
 func UploadMods(c *gin.Context) {
@@ -83,7 +70,7 @@ func UploadMods(c *gin.Context) {
 	var uploaded []string
 	for _, fh := range files {
 		if !strings.EqualFold(filepath.Ext(fh.Filename), ".jar") {
-			continue // silently skip non‑jar
+			continue
 		}
 
 		dst := filepath.Join(modsPath, filepath.Base(fh.Filename))
@@ -100,6 +87,8 @@ func UploadMods(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "no .jar files uploaded"})
 		return
 	}
+
+	events.Manager.UpdateModlist()
 	c.JSON(http.StatusCreated, gin.H{"mods": uploaded})
 }
 
@@ -128,64 +117,12 @@ func DeleteMod(c *gin.Context) {
 		return
 	}
 
+	events.Manager.UpdateModlist()
 	c.Status(http.StatusNoContent) // 204
 }
 
-func Status(c *gin.Context) {
-	status := events.ServerStatusManager.GetStatus()
-	if status == "" {
-		status = "Cannot determine status"
-	}
-	slog.Info("Sending current server status", "status", status)
-	c.JSON(http.StatusOK, gin.H{"message": status})
-}
-
-func StatusStream(c *gin.Context) {
-	c.Writer.Header().Set("Content-Type", "text/event-stream")
-	c.Writer.Header().Set("Cache-Control", "no-cache")
-	c.Writer.Header().Set("Connection", "keep-alive")
-
-	clientChan := make(chan events.ServerStatus, 1)
-	events.ServerStatusManager.AddClient(clientChan)
-	defer events.ServerStatusManager.RemoveClient(clientChan)
-
-	ticker := time.NewTicker(30 * time.Second)
-	defer ticker.Stop()
-
-	ctx := c.Request.Context()
-	flusher, ok := c.Writer.(http.Flusher)
-	if !ok {
-		c.JSON(http.StatusInternalServerError, gin.H{"message": "Streaming unsupported"})
-		return
-	}
-
-	slog.Info("SSE client connected", "ip", c.ClientIP())
-	for {
-		select {
-		case <-ctx.Done():
-			slog.Info("SSE client disconnected", "ip", c.ClientIP())
-			return
-		case statusUpdate := <-clientChan:
-			_, err := fmt.Fprintf(c.Writer, "data: {\"status\": \"%s\"}\n\n", statusUpdate)
-			if err != nil {
-				slog.Error("Error writing to SSE client", "error", err)
-				return
-			}
-			flusher.Flush()
-		case <-ticker.C:
-			_, err := fmt.Fprintf(c.Writer, ": heartbeat\n\n")
-			if err != nil {
-				slog.Error("Error writing heartbeat to SSE client", "error", err, "ip", c.ClientIP())
-				return
-			}
-			slog.Info("Heartbeat sent", "ip", c.ClientIP())
-		}
-		flusher.Flush()
-	}
-}
-
 func StartServer(c *gin.Context) {
-	currentStatus := events.ServerStatusManager.GetStatus()
+	currentStatus := events.Manager.GetStatus()
 	if currentStatus == events.Online || currentStatus == events.Starting {
 		slog.Info("Received request to start server, but server is already online or starting")
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -194,15 +131,14 @@ func StartServer(c *gin.Context) {
 		return
 	}
 
-	// events.ServerStatusManager.SimulateStart()
-	events.ServerStatusManager.StartServer()
-
 	slog.Info("Server is starting...")
+	events.Manager.StartServer()
+
 	c.JSON(http.StatusOK, gin.H{"message": "O servidor está iniciando..."})
 }
 
 func StopServer(c *gin.Context) {
-	currentStatus := events.ServerStatusManager.GetStatus()
+	currentStatus := events.Manager.GetStatus()
 	if currentStatus == events.Offline || currentStatus == events.Stopping {
 		slog.Info("Received request to stop server, but server is already offline or stopping")
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -211,15 +147,14 @@ func StopServer(c *gin.Context) {
 		return
 	}
 
-	// events.ServerStatusManager.SimulateStop()
-	events.ServerStatusManager.StopServer()
+	events.Manager.StopServer()
 
 	slog.Info("Server stopping...")
 	c.JSON(http.StatusOK, gin.H{"message": "O servidor está parando..."})
 }
 
 func RestartServer(c *gin.Context) {
-	currentStatus := events.ServerStatusManager.GetStatus()
+	currentStatus := events.Manager.GetStatus()
 	if currentStatus != events.Online && currentStatus != events.Offline {
 		slog.Info("Received request to restart server, but server is currently changing state")
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -228,8 +163,7 @@ func RestartServer(c *gin.Context) {
 		return
 	}
 
-	// events.ServerStatusManager.SimulateRestart()
-	events.ServerStatusManager.RestartServer()
+	events.Manager.RestartServer()
 
 	slog.Info("Server restarting...")
 	c.JSON(http.StatusOK, gin.H{"message": "O servidor está reiniciando..."})

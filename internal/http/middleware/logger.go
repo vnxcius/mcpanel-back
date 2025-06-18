@@ -28,7 +28,6 @@ func SlogLoggerMiddleware() gin.HandlerFunc {
 		statusCode := c.Writer.Status()
 		clientIP := c.ClientIP()
 		method := c.Request.Method
-		userAgent := c.Request.UserAgent()
 		errors := c.Errors.ByType(gin.ErrorTypePrivate).String()
 
 		attrs := []slog.Attr{
@@ -38,7 +37,6 @@ func SlogLoggerMiddleware() gin.HandlerFunc {
 			slog.String("query", query),
 			slog.String("ip", clientIP),
 			slog.String("latency", latency),
-			slog.String("user_agent", userAgent),
 			slog.String("body", requestBody),
 		}
 
@@ -53,6 +51,6 @@ func SlogLoggerMiddleware() gin.HandlerFunc {
 			level = slog.LevelWarn
 		}
 
-		slog.LogAttrs(c, level, "Incoming request", attrs...)
+		slog.LogAttrs(c, level, "REQUEST RECEIVED", attrs...)
 	}
 }

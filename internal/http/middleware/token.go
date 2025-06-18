@@ -45,7 +45,6 @@ func TokenAuth() gin.HandlerFunc {
 
 		token := strings.TrimPrefix(authHeader, bearerTokenPrefix)
 
-		slog.Info("Validating session token")
 		if token == os.Getenv("DISCORD_BOT_TOKEN") {
 			slog.Info("Discord bot request received, skipping session token validation")
 			c.Next()
@@ -70,7 +69,7 @@ func TokenAuth() gin.HandlerFunc {
 			return
 		}
 
-		slog.Info("Token successfully validated")
+		slog.Info("Session token successfully validated")
 		c.Next()
 	}
 }
