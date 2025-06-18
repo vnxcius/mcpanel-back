@@ -1,18 +1,14 @@
 package events
 
 import (
-	"bufio"
 	"encoding/json"
 	"errors"
-	"io"
 	"log"
 	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
-	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/joho/godotenv"
@@ -72,60 +68,7 @@ func (m *WSManager) AddClient(conn *websocket.Conn) {
 	go m.syncWithMinecraft()
 	go c.WriteMessages()
 	go c.ReadMessages()
-
-	lines := make(chan string, 1000)
-	go m.tailFile(logsPath, lines) // Start file tailing in a goroutine
-	go func() {
-		const maxLines = 500
-		var (
-			buf      []string // ring‐buffer with the last ≤maxLines lines
-			total    int      // total lines observed so far
-			lastSent int      // last total count the clients have received
-			mu       sync.Mutex
-		)
-
-		// producer ---------------------------------------------------------------
-		go func() {
-			for l := range lines {
-				if l == "" {
-					continue
-				} // ignore empty split artefacts
-
-				mu.Lock()
-				buf = append(buf, l)
-				total++
-
-				if len(buf) > maxLines { // drop from the head
-					buf = buf[len(buf)-maxLines:]
-				}
-				mu.Unlock()
-			}
-		}()
-
-		// consumer ---------------------------------------------------------------
-		tick := time.NewTicker(time.Second)
-		defer tick.Stop()
-
-		for range tick.C {
-			mu.Lock()
-			if lastSent < total {
-				// number of unread lines
-				pending := total - lastSent
-				if pending > len(buf) {
-					pending = len(buf) // older ones already dropped
-				}
-				start := len(buf) - pending // slice start index
-
-				payload, _ := json.Marshal(struct {
-					Lines []string `json:"lines"`
-				}{Lines: buf[start:]})
-
-				m.broadcast(Event{Type: EventLogAppend, Payload: payload})
-				lastSent = total
-			}
-			mu.Unlock()
-		}
-	}()
+	go tailLogs()
 
 	// Update server status
 	payload, _ := json.Marshal(StatusUpdateEvent{Status: m.GetStatus()})
@@ -211,93 +154,4 @@ func (m *WSManager) getModlistPayload() ([]byte, error) {
 	}
 
 	return json.Marshal(ModList{Mods: mods})
-}
-
-func (m *WSManager) getLastLogLines(n int) ([]string, error) {
-	slog.Debug("Getting last log lines", "path", logsPath, "n", n)
-	file, err := os.Open(filepath.Clean(logsPath))
-	if err != nil {
-		return nil, err
-	}
-	defer file.Close()
-
-	lines := []string{}
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		lines = append(lines, scanner.Text())
-	}
-
-	if len(lines) > n {
-		lines = lines[len(lines)-n:]
-	}
-	return lines, nil
-}
-
-func (m *WSManager) tailFile(filePath string, lines chan<- string) {
-	slog.Debug("Starting log tailing", "path", filePath)
-	file, fi := openLog(filePath)
-	defer file.Close()
-
-	lastMod, offset := fi.ModTime(), fi.Size()
-	file.Seek(0, io.SeekEnd)
-
-	for {
-		time.Sleep(time.Second)
-		currentFi, err := os.Stat(filePath)
-		if err != nil {
-			log.Printf("file missing, waiting for recreation...")
-			continue
-		}
-
-		if rotated(currentFi, lastMod, offset) {
-			slog.Debug("Log file rotated, restarting tailing", "path", filePath)
-			file.Close()
-			file, fi = openLog(filePath)
-			lastMod, offset = fi.ModTime(), 0
-			continue
-		}
-
-		offset, lastMod = readNew(file, currentFi, offset, lines)
-	}
-}
-
-func openLog(path string) (*os.File, os.FileInfo) {
-	f, err := os.Open(path)
-	if err != nil {
-		log.Fatalf("failed to open file: %v", err)
-	}
-	fi, err := f.Stat()
-	if err != nil {
-		log.Fatalf("failed to get file stats: %v", err)
-	}
-	return f, fi
-}
-
-func rotated(fi os.FileInfo, lastMod time.Time, offset int64) bool {
-	return fi.ModTime().Before(lastMod) || fi.Size() < offset
-}
-
-func readNew(f *os.File, fi os.FileInfo, offset int64, out chan<- string) (int64, time.Time) {
-	if fi.Size() <= offset {
-		return offset, fi.ModTime()
-	}
-
-	f.Seek(offset, io.SeekStart)
-	buf := make([]byte, fi.Size()-offset)
-
-	n, err := f.Read(buf)
-	if err != nil && err != io.EOF {
-		log.Fatalf("failed to read file: %v", err)
-	}
-
-	lines := strings.Split(strings.ReplaceAll(string(buf[:n]), "\r\n", "\n"), "\n")
-	for _, line := range lines {
-		select {
-		case out <- line:
-		default: // drop if channel is full
-			slog.Warn("Log channel full, dropping line")
-		}
-	}
-
-	return fi.Size(), fi.ModTime()
 }
