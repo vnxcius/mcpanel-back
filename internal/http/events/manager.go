@@ -12,6 +12,7 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/joho/godotenv"
+	"slices"
 )
 
 var (
@@ -21,8 +22,9 @@ var (
 		CheckOrigin:     checkOrigin,
 	}
 
-	Manager  *WSManager
-	logsPath string
+	Manager        *WSManager
+	logsPath       string
+	allowedOrigins []string
 )
 
 func init() {
@@ -32,11 +34,16 @@ func init() {
 	}
 
 	logsPath = os.Getenv("LOGS_PATH")
+	allowedOrigins = strings.Split(os.Getenv("ALLOWED_ORIGINS"), ",")
+}
+
+func contains(s []string, str string) bool {
+	return slices.Contains(s, str)
 }
 
 func checkOrigin(r *http.Request) bool {
-	if origin := r.Header.Get("Origin"); origin != os.Getenv("ALLOWED_ORIGINS") {
-		return true
+	if origin := r.Header.Get("Origin"); !contains(allowedOrigins, origin) {
+		return false
 	}
 	return true
 }
