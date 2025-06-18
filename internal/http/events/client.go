@@ -120,6 +120,5 @@ func (c *Client) WriteMessages() {
 }
 
 func (c *Client) pongHandler(pongMessage string) error {
-	slog.Info("Pong received from client", "ip", c.connection.RemoteAddr().String())
 	return c.connection.SetReadDeadline(time.Now().Add(pongWait))
 }

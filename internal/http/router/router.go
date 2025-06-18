@@ -75,8 +75,8 @@ func NewRouter(db *sql.DB) {
 		protected.POST("/server/restart", handlers.RestartServer)
 
 		protected.GET("/modlist", handlers.UpdateModlist)
-		protected.POST("/modlist/upload", handlers.UploadMods)
-		protected.DELETE("/modlist/delete/:name", handlers.DeleteMod)
+		protected.POST("/mod/upload", handlers.UploadMods)
+		protected.DELETE("/mod/delete/:name", handlers.DeleteMod)
 	}
 
 	r.NoRoute(func(c *gin.Context) {
