@@ -40,6 +40,7 @@ func (m *WSManager) getLastLogLines(n int) ([]string, error) {
 }
 
 func tailLogs() {
+	slog.Info("Starting tailLogs")
 	lines := make(chan string, 1000)
 	go tailFile(logsPath, lines)
 

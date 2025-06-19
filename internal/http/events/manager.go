@@ -9,10 +9,12 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
+
+	"slices"
 
 	"github.com/gorilla/websocket"
 	"github.com/joho/godotenv"
-	"slices"
 )
 
 var (
@@ -25,6 +27,8 @@ var (
 	Manager        *WSManager
 	logsPath       string
 	allowedOrigins []string
+
+	once sync.Once
 )
 
 func init() {
@@ -66,6 +70,9 @@ func InitializeManager() {
 }
 
 func (m *WSManager) AddClient(conn *websocket.Conn) {
+	once.Do(func() {
+		tailLogs()
+	})
 	c := NewClient(conn, m)
 
 	m.Lock()
@@ -75,7 +82,6 @@ func (m *WSManager) AddClient(conn *websocket.Conn) {
 	go m.syncWithMinecraft()
 	go c.WriteMessages()
 	go c.ReadMessages()
-	go tailLogs()
 
 	// Update server status
 	payload, _ := json.Marshal(StatusUpdateEvent{Status: m.GetStatus()})
