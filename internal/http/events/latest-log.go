@@ -44,7 +44,7 @@ func tailLogs() {
 	lines := make(chan string, 1000)
 	go tailFile(logsPath, lines)
 
-	const maxLines = 500
+	const maxLines = 350
 	buf := &logBuffer{}
 
 	go startProducer(lines, buf, maxLines)

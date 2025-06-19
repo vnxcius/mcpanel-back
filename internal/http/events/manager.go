@@ -96,7 +96,7 @@ func (m *WSManager) AddClient(conn *websocket.Conn) {
 	}
 
 	// Send log snapshot
-	logSnapshot, err := m.getLastLogLines(200)
+	logSnapshot, err := m.getLastLogLines(350)
 	if err == nil {
 		payload, _ := json.Marshal(struct {
 			Lines []string `json:"lines"`
