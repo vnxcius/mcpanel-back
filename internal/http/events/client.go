@@ -13,11 +13,12 @@ var (
 	pingInterval = (pongWait * 9) / 10 // 90% of pongWait
 )
 
-func NewClient(conn *websocket.Conn, m *WSManager) *Client {
+func NewClient(conn *websocket.Conn, m *WSManager, ip string) *Client {
 	return &Client{
 		connection: conn,
 		manager:    m,
 		egress:     make(chan Event, 500),
+		ip:         ip,
 	}
 }
 
@@ -73,7 +74,7 @@ func (c *Client) WriteMessages() {
 	}()
 
 	ticker := time.NewTicker(pingInterval)
-	slog.Debug("Starting write loop", "ip", c.connection.RemoteAddr().String())
+	slog.Debug("Starting write loop", "ip", c.ip)
 	for {
 		select {
 		case message, ok := <-c.egress:

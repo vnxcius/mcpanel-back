@@ -68,11 +68,11 @@ func InitializeManager() {
 	Manager = newManager()
 }
 
-func (m *WSManager) AddClient(conn *websocket.Conn) {
+func (m *WSManager) AddClient(conn *websocket.Conn, ip string) {
 	once.Do(func() {
 		tailLogs()
 	})
-	c := NewClient(conn, m)
+	c := NewClient(conn, m, ip)
 
 	m.Lock()
 	m.clients[c] = true

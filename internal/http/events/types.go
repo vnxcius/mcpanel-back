@@ -18,6 +18,7 @@ type WSManager struct {
 type Client struct {
 	connection *websocket.Conn
 	manager    *WSManager
+	ip         string
 
 	// Buffered channel of outbound messages
 	egress chan Event

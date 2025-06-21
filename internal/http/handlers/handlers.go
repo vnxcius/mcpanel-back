@@ -38,9 +38,10 @@ func ServeWebSocket(c *gin.Context) {
 		return
 	}
 
-	events.Manager.AddClient(conn)
+	ip := c.ClientIP()
+	events.Manager.AddClient(conn, ip)
 
-	slog.Info("WebSocket client connected", "ip", c.ClientIP())
+	slog.Info("WebSocket client connected", "ip", ip)
 }
 
 func UpdateModlist(c *gin.Context) {
