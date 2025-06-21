@@ -4,10 +4,10 @@ import (
 	"encoding/json"
 	"log"
 	"log/slog"
-	"net"
 	"os"
 	"os/exec"
-	"time"
+
+	"github.com/vnxcius/mcpanel-back/internal/helpers"
 )
 
 func runServerScript(action string) error {
@@ -19,6 +19,7 @@ func runServerScript(action string) error {
 	return err
 }
 
+// Returns the current server status stored in the Manager
 func (m *WSManager) GetStatus() ServerStatus {
 	m.RLock()
 	defer m.RUnlock()
@@ -44,7 +45,7 @@ func (m *WSManager) SetStatus(status ServerStatus) {
 }
 
 func (m *WSManager) UpdateModlist() error {
-	payload, err := m.getModlistPayload()
+	payload, err := helpers.GetMods()
 	if err != nil {
 		slog.Error("Error marshalling message", "error", err)
 		return err
@@ -61,74 +62,71 @@ func (m *WSManager) UpdateModlist() error {
 func (m *WSManager) StartServer() {
 	go func() {
 		if os.Getenv("ENVIRONMENT") == "development" {
-			m.SimulateStart()
+			simulateStart()
 			return
 		}
 
 		m.SetStatus(Starting)
 		if err := runServerScript("start"); err != nil {
-			log.Println("Failed to start server:", err)
+			slog.Error("Failed to start server", "error", err)
 			m.SetStatus(Offline)
 			return
 		}
 
-		waitUntilOnline(m)
+		isOnline := helpers.WaitMinecraftServer("online")
+		if !isOnline {
+			m.SetStatus(Offline)
+			return
+		}
+
+		m.SetStatus(Online)
 	}()
 }
 
 func (m *WSManager) StopServer() {
 	go func() {
 		if os.Getenv("ENVIRONMENT") == "development" {
-			m.SimulateStop()
+			simulateStop()
 			return
 		}
 
 		m.SetStatus(Stopping)
 		if err := runServerScript("stop"); err != nil {
-			log.Println("Failed to stop server:", err)
+			slog.Error("Failed to stop server:", "error", err)
 			m.SetStatus(Online)
 			return
 		}
 
-		time.Sleep(2 * time.Second)
-		m.SetStatus(Offline)
+		isOffline := helpers.WaitMinecraftServer("offline")
+		if isOffline {
+			m.SetStatus(Offline)
+			return
+		}
+
+		m.SetStatus(Online)
 	}()
 }
 
 func (m *WSManager) RestartServer() {
 	go func() {
 		if os.Getenv("ENVIRONMENT") == "development" {
-			m.SimulateRestart()
+			simulateRestart()
 			return
 		}
 
 		m.SetStatus(Restarting)
 		if err := runServerScript("restart"); err != nil {
-			log.Println("Failed to restart server:", err)
+			slog.Error("Failed to restart server:", "error", err)
 			m.SetStatus(Online)
 			return
 		}
 
-		waitUntilOnline(m)
+		isOnline := helpers.WaitMinecraftServer("online")
+		if !isOnline {
+			m.SetStatus(Offline)
+			return
+		}
+
+		m.SetStatus(Online)
 	}()
-}
-
-func waitUntilOnline(m *WSManager) {
-	const (
-		address = "127.0.0.1:25565"
-		timeout = 2 * time.Second
-	)
-
-	for range 120 { // retry for up to ~120 seconds
-		conn, err := net.DialTimeout("tcp", address, timeout)
-		if err == nil {
-			conn.Close()
-			m.SetStatus(Online)
-			return
-		}
-		time.Sleep(1 * time.Second)
-	}
-
-	// Timed out
-	m.SetStatus(Offline)
 }

@@ -7,7 +7,6 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
-	"path/filepath"
 	"strings"
 	"sync"
 
@@ -15,6 +14,7 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/joho/godotenv"
+	"github.com/vnxcius/mcpanel-back/internal/helpers"
 )
 
 var (
@@ -52,21 +52,20 @@ func checkOrigin(r *http.Request) bool {
 	return true
 }
 
-func newManager(mcServerAddr string) *WSManager {
+func newManager() *WSManager {
 	status := Offline
-	if isMinecraftOnline(mcServerAddr) {
+	if helpers.IsMinecraftCurrentlyOnline() {
 		status = Online
 	}
 	return &WSManager{
 		clients:       make(ClientList),
 		handlers:      make(map[string]EventHandler),
-		serverAddr:    mcServerAddr,
 		currentStatus: status,
 	}
 }
 
 func InitializeManager() {
-	Manager = newManager("localhost:25565")
+	Manager = newManager()
 }
 
 func (m *WSManager) AddClient(conn *websocket.Conn) {
@@ -83,26 +82,37 @@ func (m *WSManager) AddClient(conn *websocket.Conn) {
 	go c.WriteMessages()
 	go c.ReadMessages()
 
-	// Update server status
-	payload, _ := json.Marshal(StatusUpdateEvent{Status: m.GetStatus()})
-	c.send(Event{Type: EventStatusUpdate, Payload: payload})
+	// update server status
+	statusPayload, _ := json.Marshal(StatusUpdateEvent{
+		Status: m.GetStatus(),
+	})
+	c.send(Event{
+		Type:    EventStatusUpdate,
+		Payload: statusPayload,
+	})
 
-	// Update modlist
-	modPayload, err := m.getModlistPayload()
+	// update modlist
+	modPayload, err := helpers.GetMods()
 	if err == nil {
-		c.send(Event{Type: EventModlistUpdate, Payload: modPayload})
+		c.send(Event{
+			Type:    EventModlistUpdate,
+			Payload: modPayload,
+		})
 	} else {
 		slog.Error("Failed to get mod list on client connect", "error", err)
 	}
 
-	// Send log snapshot
-	logSnapshot, err := m.getLastLogLines(350)
+	// send log snapshot
+	logSnapshot, err := getLastLogLines(350)
 	if err == nil {
 		payload, _ := json.Marshal(struct {
 			Lines []string `json:"lines"`
 		}{Lines: logSnapshot})
 
-		c.send(Event{Type: EventLogSnapshot, Payload: payload})
+		c.send(Event{
+			Type:    EventLogSnapshot,
+			Payload: payload,
+		})
 	}
 }
 
@@ -143,28 +153,17 @@ func (m *WSManager) broadcast(evt Event) {
 
 func (m *WSManager) syncWithMinecraft() {
 	slog.Info("Syncing with Minecraft server...")
-	if isMinecraftOnline(m.serverAddr) && m.GetStatus() != Online {
-		slog.Info("Minecraft server corrected to online")
+	status := m.GetStatus()
+
+	if helpers.IsMinecraftCurrentlyOnline() && status == Offline {
 		m.SetStatus(Online)
-	} else if !isMinecraftOnline(m.serverAddr) && m.GetStatus() != Offline {
-		slog.Info("Minecraft server corrected to offline")
+		slog.Info("Minecraft server corrected to online")
+		return
+	}
+
+	if !helpers.IsMinecraftCurrentlyOnline() && status == Online {
 		m.SetStatus(Offline)
+		slog.Info("Minecraft server corrected to offline")
+		return
 	}
-}
-
-func (m *WSManager) getModlistPayload() ([]byte, error) {
-	entries, err := os.ReadDir(os.Getenv("MODS_PATH"))
-	if err != nil {
-		return nil, err
-	}
-
-	var mods []Mod
-	for _, e := range entries {
-		if !e.IsDir() && strings.EqualFold(filepath.Ext(e.Name()), ".jar") {
-			name := strings.TrimSuffix(e.Name(), filepath.Ext(e.Name()))
-			mods = append(mods, Mod{Name: name})
-		}
-	}
-
-	return json.Marshal(ModList{Mods: mods})
 }

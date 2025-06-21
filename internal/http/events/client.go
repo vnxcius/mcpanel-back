@@ -3,7 +3,6 @@ package events
 import (
 	"encoding/json"
 	"log/slog"
-	"net"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -13,16 +12,6 @@ var (
 	pongWait     = 10 * time.Second
 	pingInterval = (pongWait * 9) / 10 // 90% of pongWait
 )
-
-func isMinecraftOnline(addr string) bool {
-	slog.Info("Checking if Minecraft server is online", "addr", addr)
-	conn, err := net.DialTimeout("tcp", addr, 3*time.Second)
-	if err != nil {
-		return false
-	}
-	_ = conn.Close()
-	return true
-}
 
 func NewClient(conn *websocket.Conn, m *WSManager) *Client {
 	return &Client{
@@ -80,7 +69,6 @@ func (c *Client) ReadMessages() {
 
 func (c *Client) WriteMessages() {
 	defer func() {
-		slog.Info("Cleaning up connection in WriteMessages")
 		c.manager.RemoveClient(c)
 	}()
 

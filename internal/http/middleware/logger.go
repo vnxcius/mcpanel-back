@@ -1,8 +1,6 @@
 package middleware
 
 import (
-	"bytes"
-	"io"
 	"log/slog"
 	"time"
 
@@ -15,13 +13,6 @@ func SlogLoggerMiddleware() gin.HandlerFunc {
 		path := c.Request.URL.Path
 		query := c.Request.URL.RawQuery
 		c.Next()
-
-		var bodyBytes []byte
-		if c.Request.Body != nil {
-			bodyBytes, _ = io.ReadAll(c.Request.Body)
-			c.Request.Body = io.NopCloser(bytes.NewBuffer(bodyBytes)) // restore body
-		}
-		requestBody := string(bodyBytes)
 
 		end := time.Now()
 		latency := end.Sub(start).String()
@@ -37,7 +28,6 @@ func SlogLoggerMiddleware() gin.HandlerFunc {
 			slog.String("query", query),
 			slog.String("ip", clientIP),
 			slog.String("latency", latency),
-			slog.String("body", requestBody),
 		}
 
 		if errors != "" {

@@ -5,27 +5,26 @@ import (
 	"time"
 )
 
-func (m *WSManager) SimulateOperation(startStatus, endStatus ServerStatus, delay time.Duration) {
-	m.SetStatus(startStatus)
+func simulateOperation(startStatus, endStatus ServerStatus, delay time.Duration) {
+	Manager.SetStatus(startStatus)
 	time.Sleep(delay)
-	m.SetStatus(endStatus)
+	Manager.SetStatus(endStatus)
 }
 
-func (sm *WSManager) SimulateStart() {
+// Start -> Online in 2s
+func simulateStart() {
 	slog.Info("Simulating server start...")
-	go sm.SimulateOperation(Starting, Online, 5*time.Second) // Start -> Online in 5s
+	go simulateOperation(Starting, Online, 2*time.Second)
 }
 
-func (sm *WSManager) SimulateStop() {
+// Stop -> Offline in 2s
+func simulateStop() {
 	slog.Info("Simulating server stop...")
-	go sm.SimulateOperation(Stopping, Offline, 3*time.Second) // Stop -> Offline in 3s
+	go simulateOperation(Stopping, Offline, 2*time.Second)
 }
 
-func (sm *WSManager) SimulateRestart() {
+// Restart -> Online in 2s
+func simulateRestart() {
 	slog.Info("Simulating server restart...")
-	go func() {
-		sm.SetStatus(Restarting)
-		time.Sleep(5 * time.Second)
-		sm.SetStatus(Online)
-	}() // Restart -> Online in 5s
+	go simulateOperation(Restarting, Online, 2*time.Second)
 }

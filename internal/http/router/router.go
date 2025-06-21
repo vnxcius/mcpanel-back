@@ -21,6 +21,7 @@ func NewRouter(db *sql.DB) {
 	r := gin.New()
 	r.Use(middleware.SlogLoggerMiddleware())
 	r.Use(gin.Recovery())
+	r.MaxMultipartMemory = 512 << 20
 
 	// since we're using Cloudflare Tunnel to reverse proxy the API
 	// we should trust only localhost

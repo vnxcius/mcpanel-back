@@ -19,7 +19,7 @@ type logBuffer struct {
 	total int
 }
 
-func (m *WSManager) getLastLogLines(n int) ([]string, error) {
+func getLastLogLines(n int) ([]string, error) {
 	slog.Debug("Getting last log lines", "path", logsPath, "n", n)
 	file, err := os.Open(filepath.Clean(logsPath))
 	if err != nil {
@@ -91,8 +91,8 @@ func openLog(path string) (*os.File, os.FileInfo) {
 	return f, fi
 }
 
-func rotated(fi os.FileInfo, lastMod time.Time, offset int64) bool {
-	return fi.ModTime().Before(lastMod) || fi.Size() < offset
+func rotated(fi os.FileInfo, lastModified time.Time, offset int64) bool {
+	return fi.ModTime().Before(lastModified) || fi.Size() < offset
 }
 
 func readNew(f *os.File, fi os.FileInfo, offset int64, out chan<- string) (int64, time.Time) {

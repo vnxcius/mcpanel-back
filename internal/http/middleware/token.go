@@ -29,6 +29,7 @@ func TokenAuth() gin.HandlerFunc {
 
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" {
+			slog.Debug("No authorization header found")
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
 				"message": "Token not found",
 			})
@@ -37,6 +38,7 @@ func TokenAuth() gin.HandlerFunc {
 
 		const bearerTokenPrefix = "Bearer "
 		if !strings.HasPrefix(authHeader, bearerTokenPrefix) {
+			slog.Debug("Invalid authorization scheme")
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
 				"message": "Invalid authorization scheme, 'Bearer' prefix required",
 			})
@@ -56,6 +58,7 @@ func TokenAuth() gin.HandlerFunc {
 
 		if err != nil {
 			if err == sql.ErrNoRows {
+				slog.Info("Session token not found", "token_attempted", token)
 				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
 					"message": "Invalid or expired token.",
 				})
