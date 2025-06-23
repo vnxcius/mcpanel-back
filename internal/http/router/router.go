@@ -62,22 +62,22 @@ func NewRouter(db *sql.DB) {
 			ctx.HTML(http.StatusOK, "privacy-policy", nil)
 		})
 		v2.GET("/ws", handlers.ServeWebSocket)
-		// v2.GET("/server-status", handlers.Status)
 	}
-
+	
 	{
 		protected := r.Group("/api/v2/signed")
 		protected.Use(middleware.WithDB(db))
 		protected.Use(middleware.RateLimit())
 		protected.Use(middleware.TokenAuth())
-
+		
 		protected.POST("/server/start", handlers.StartServer)
 		protected.POST("/server/stop", handlers.StopServer)
 		protected.POST("/server/restart", handlers.RestartServer)
-
+		
 		protected.GET("/modlist", handlers.UpdateModlist)
 		protected.POST("/mod/upload", handlers.UploadMods)
 		protected.DELETE("/mod/delete/:name", handlers.DeleteMod)
+		protected.POST("/mod/update/:name", handlers.UpdateMod)
 	}
 
 	r.NoRoute(func(c *gin.Context) {

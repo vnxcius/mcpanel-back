@@ -61,7 +61,7 @@ func (m *WSManager) UpdateModlist() error {
 
 func (m *WSManager) StartServer() {
 	go func() {
-		if os.Getenv("ENVIRONMENT") == "development" {
+		if os.Getenv("ENVIRONMENT") != "production" {
 			simulateStart()
 			return
 		}
@@ -85,7 +85,7 @@ func (m *WSManager) StartServer() {
 
 func (m *WSManager) StopServer() {
 	go func() {
-		if os.Getenv("ENVIRONMENT") == "development" {
+		if os.Getenv("ENVIRONMENT") != "production" {
 			simulateStop()
 			return
 		}
@@ -109,7 +109,7 @@ func (m *WSManager) StopServer() {
 
 func (m *WSManager) RestartServer() {
 	go func() {
-		if os.Getenv("ENVIRONMENT") == "development" {
+		if os.Getenv("ENVIRONMENT") != "production" {
 			simulateRestart()
 			return
 		}
