@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -119,6 +120,22 @@ func DeleteMod(c *gin.Context) {
 
 	events.Manager.UpdateModlist()
 	c.Status(http.StatusNoContent) // 204
+}
+
+func DownloadMod(c *gin.Context) {
+	name := c.Param("name")
+	path := filepath.Join(modsDir, name)
+
+	f, err := os.Open(path)
+	if err != nil {
+		c.String(http.StatusNotFound, "mod not found")
+		return
+	}
+	defer f.Close()
+
+	c.Header("Content-Disposition", "attachment; filename="+name)
+	c.Header("Content-Type", "application/java-archive")
+	c.File(path)
 }
 
 func StartServer(c *gin.Context) {

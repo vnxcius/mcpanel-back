@@ -9,6 +9,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -21,7 +22,9 @@ type modlist struct {
 }
 
 type mod struct {
-	Name string `json:"name"`
+	Name    string `json:"name"`
+	Size    int64  `json:"size"`
+	ModTime int64  `json:"modTime"`
 }
 
 const addr = "localhost:25565"
@@ -41,12 +44,22 @@ func GetMods() ([]byte, error) {
 	for _, e := range entries {
 		// only add .jar files to the list
 		if !e.IsDir() && strings.EqualFold(filepath.Ext(e.Name()), ".jar") {
-			name := strings.TrimSuffix(e.Name(), filepath.Ext(e.Name()))
+			info, err := os.Stat(filepath.Join(path, e.Name()))
+			if err != nil {
+				continue
+			}
 			mods = append(mods, mod{
-				Name: name,
+				Name:    info.Name(),
+				Size:    info.Size(),
+				ModTime: info.ModTime().Unix(),
 			})
 		}
+
 	}
+
+	sort.SliceStable(mods, func(i, j int) bool {
+		return strings.ToLower(mods[i].Name) < strings.ToLower(mods[j].Name)
+	})
 
 	return json.Marshal(modlist{
 		Mods: mods,
@@ -108,7 +121,7 @@ func IsMinecraftCurrentlyOnline() bool {
 Deletes a given mod from the mods folder.
 */
 func DeleteModFromDir(modsDir, modName string) error {
-	target := filepath.Join(modsDir, modName+".jar")
+	target := filepath.Join(modsDir, modName)
 
 	// extra safety: ensure we're still inside modsDir after Join/Clean
 	if !strings.HasPrefix(filepath.Clean(target), filepath.Clean(modsDir)) {
@@ -123,7 +136,7 @@ func DeleteModFromDir(modsDir, modName string) error {
 		return err
 	}
 
-	logging.LogModChange(modName+".jar", logging.ModDeleted)
+	logging.LogModChange(modName, logging.ModDeleted)
 	return nil
 }
 
@@ -201,7 +214,7 @@ func UpdateModFromDir(
 	oldModBase string, // e.g. "test-1.20.1-1304"
 	c *gin.Context,
 ) error {
-	oldPath := filepath.Join(modsDir, oldModBase+".jar")
+	oldPath := filepath.Join(modsDir, oldModBase)
 	if _, err := os.Stat(oldPath); os.IsNotExist(err) {
 		return fmt.Errorf("mod %q not found", oldModBase)
 	}
