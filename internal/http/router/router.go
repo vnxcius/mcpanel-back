@@ -63,17 +63,17 @@ func NewRouter(db *sql.DB) {
 		})
 		v2.GET("/ws", handlers.ServeWebSocket)
 	}
-	
+
 	{
 		protected := r.Group("/api/v2/signed")
 		protected.Use(middleware.WithDB(db))
 		protected.Use(middleware.RateLimit())
 		protected.Use(middleware.TokenAuth())
-		
+
 		protected.POST("/server/start", handlers.StartServer)
 		protected.POST("/server/stop", handlers.StopServer)
 		protected.POST("/server/restart", handlers.RestartServer)
-		
+
 		protected.GET("/modlist", handlers.UpdateModlist)
 		protected.POST("/mod/upload", handlers.UploadMods)
 		protected.GET("/mod/download/:name", handlers.DownloadMod)

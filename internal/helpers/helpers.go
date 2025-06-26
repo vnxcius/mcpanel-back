@@ -1,6 +1,7 @@
 package helpers
 
 import (
+	"bufio"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -211,7 +212,7 @@ Returns any errors.
 func UpdateModFromDir(
 	file *multipart.FileHeader,
 	modsDir string,
-	oldModBase string, // e.g. "test-1.20.1-1304"
+	oldModBase string,
 	c *gin.Context,
 ) error {
 	oldPath := filepath.Join(modsDir, oldModBase)
@@ -219,7 +220,12 @@ func UpdateModFromDir(
 		return fmt.Errorf("mod %q not found", oldModBase)
 	}
 
-	newPath := filepath.Join(modsDir, filepath.Base(file.Filename))
+	newFilename := filepath.Base(file.Filename)
+	if newFilename == oldModBase {
+		return nil
+	}
+
+	newPath := filepath.Join(modsDir, newFilename)
 	if err := c.SaveUploadedFile(file, newPath); err != nil {
 		return fmt.Errorf("saving new mod: %w", err)
 	}
@@ -229,6 +235,44 @@ func UpdateModFromDir(
 		return fmt.Errorf("removing old mod: %w", err)
 	}
 
-	logging.LogModChange(fmt.Sprintf("%s → %s", oldModBase+".jar", file.Filename), logging.ModUpdated)
+	logging.LogModChange(fmt.Sprintf("%s → %s", oldModBase, newFilename), logging.ModUpdated)
 	return nil
+}
+
+func GetModlistChangelog() ([]map[string]any, error) {
+	const logDir = "./logs/modlist-changelog"
+
+	files, err := os.ReadDir(logDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read changelog dir: %w", err)
+	}
+
+	sort.Slice(files, func(i, j int) bool {
+		return files[i].Name() > files[j].Name()
+	})
+
+	var allChanges []map[string]any
+
+	for _, file := range files {
+		if file.IsDir() || !strings.HasSuffix(file.Name(), ".log") {
+			continue
+		}
+
+		path := filepath.Join(logDir, file.Name())
+		f, err := os.Open(path)
+		if err != nil {
+			continue
+		}
+
+		scanner := bufio.NewScanner(f)
+		for scanner.Scan() {
+			var entry map[string]any
+			if err := json.Unmarshal([]byte(scanner.Text()), &entry); err == nil {
+				allChanges = append(allChanges, entry)
+			}
+		}
+		f.Close()
+	}
+
+	return allChanges, nil
 }

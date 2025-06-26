@@ -114,6 +114,16 @@ func (m *WSManager) AddClient(conn *websocket.Conn, ip string) {
 			Payload: payload,
 		})
 	}
+
+	// changelog
+	modlistChangelog, err := helpers.GetModlistChangelog()
+	if err == nil {
+		payload, _ := json.Marshal(modlistChangelog)
+		c.send(Event{
+			Type:    EventModlistChangelogUpdate,
+			Payload: payload,
+		})
+	}
 }
 
 func (m *WSManager) RemoveClient(c *Client) {

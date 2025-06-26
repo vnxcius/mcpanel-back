@@ -40,10 +40,11 @@ type StatusUpdateEvent struct {
 type ServerStatus string
 
 const (
-	EventStatusUpdate  = "status_update"
-	EventModlistUpdate = "modlist_update"
-	EventLogAppend     = "log_append"
-	EventLogSnapshot   = "log_snapshot"
+	EventStatusUpdate           = "status_update"
+	EventModlistUpdate          = "modlist_update"
+	EventModlistChangelogUpdate = "modlist_changelog_update"
+	EventLogAppend              = "log_append"
+	EventLogSnapshot            = "log_snapshot"
 
 	Starting   ServerStatus = "starting"
 	Online     ServerStatus = "online"

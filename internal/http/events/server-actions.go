@@ -56,6 +56,24 @@ func (m *WSManager) UpdateModlist() error {
 		Payload: payload,
 	})
 
+	var modlistChangelog []map[string]any
+	modlistChangelog, err = helpers.GetModlistChangelog()
+	if err != nil {
+		slog.Error("Error marshalling message", "error", err)
+		return err
+	}
+
+	jsonPayload, err := json.Marshal(modlistChangelog)
+	if err != nil {
+		slog.Error("Error marshalling payload", "error", err)
+		return err
+	}
+
+	m.broadcast(Event{
+		Type:    EventModlistChangelogUpdate,
+		Payload: jsonPayload,
+	})
+
 	return nil
 }
 

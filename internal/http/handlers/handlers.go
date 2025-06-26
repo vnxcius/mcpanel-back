@@ -1,11 +1,14 @@
 package handlers
 
 import (
+	"bufio"
+	"encoding/json"
 	"log"
 	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -136,6 +139,45 @@ func DownloadMod(c *gin.Context) {
 	c.Header("Content-Disposition", "attachment; filename="+name)
 	c.Header("Content-Type", "application/java-archive")
 	c.File(path)
+}
+
+func GetModsChangelog(c *gin.Context) {
+	const logDir = "./logs/modlist-changelog"
+
+	files, err := os.ReadDir(logDir)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to read changelog dir"})
+		return
+	}
+
+	sort.Slice(files, func(i, j int) bool {
+		return files[i].Name() < files[j].Name()
+	})
+
+	var allChanges []map[string]any
+
+	for _, file := range files {
+		if file.IsDir() || !strings.HasSuffix(file.Name(), ".log") {
+			continue
+		}
+
+		path := filepath.Join(logDir, file.Name())
+		f, err := os.Open(path)
+		if err != nil {
+			continue
+		}
+
+		scanner := bufio.NewScanner(f)
+		for scanner.Scan() {
+			var entry map[string]any
+			if err := json.Unmarshal([]byte(scanner.Text()), &entry); err == nil {
+				allChanges = append(allChanges, entry)
+			}
+		}
+		f.Close()
+	}
+
+	c.JSON(http.StatusOK, gin.H{"changes": allChanges})
 }
 
 func StartServer(c *gin.Context) {
