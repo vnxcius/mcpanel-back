@@ -46,10 +46,15 @@ func contains(s []string, str string) bool {
 }
 
 func checkOrigin(r *http.Request) bool {
-	if origin := r.Header.Get("Origin"); !contains(allowedOrigins, origin) {
-		return false
+	origin := r.Header.Get("Origin")
+
+	if origin != "" && contains(allowedOrigins, origin) {
+		return true
 	}
-	return true
+
+	token := r.Header.Get("X-Bot-Token")
+	slog.Warn("Origin not allowed, checking if is discord bot")
+	return token == os.Getenv("DISCORD_BOT_TOKEN")
 }
 
 func newManager() *WSManager {

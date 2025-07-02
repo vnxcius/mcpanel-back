@@ -62,6 +62,8 @@ func NewRouter(db *sql.DB) {
 			ctx.HTML(http.StatusOK, "privacy-policy", nil)
 		})
 		v2.GET("/ws", handlers.ServeWebSocket)
+		v2.GET("/server-status", handlers.GetServerStatus)
+		v2.GET("/modlist", handlers.GetModlist)
 	}
 
 	{
@@ -74,7 +76,6 @@ func NewRouter(db *sql.DB) {
 		protected.POST("/server/stop", handlers.StopServer)
 		protected.POST("/server/restart", handlers.RestartServer)
 
-		protected.GET("/modlist", handlers.UpdateModlist)
 		protected.POST("/mod/upload", handlers.UploadMods)
 		protected.GET("/mod/download/:name", handlers.DownloadMod)
 		protected.POST("/mod/update/:name", handlers.UpdateMod)

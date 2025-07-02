@@ -48,13 +48,22 @@ func ServeWebSocket(c *gin.Context) {
 	slog.Info("WebSocket client connected", "ip", ip)
 }
 
-func UpdateModlist(c *gin.Context) {
-	err := events.Manager.UpdateModlist()
+func GetModlist(c *gin.Context) {
+	data, err := helpers.GetMods()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, nil)
+
+	var parsed struct {
+		Mods []any `json:"mods"`
+	}
+	if err := json.Unmarshal(data, &parsed); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "invalid mod list format"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"mods": parsed.Mods})
 }
 
 func UploadMods(c *gin.Context) {
@@ -178,6 +187,10 @@ func GetModsChangelog(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"changes": allChanges})
+}
+
+func GetServerStatus(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{"status": events.Manager.GetStatus()})
 }
 
 func StartServer(c *gin.Context) {
