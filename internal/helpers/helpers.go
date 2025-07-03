@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/vnxcius/mcpanel-back/internal/logging"
 )
 
 type modlist struct {
@@ -139,7 +138,6 @@ func DeleteModFromDir(modsDir, modName string) error {
 		return err
 	}
 
-	logging.LogModChange(modName, logging.ModDeleted)
 	return nil
 }
 
@@ -197,7 +195,6 @@ func UploadModsToDir(
 		}
 
 		uploaded = append(uploaded, fh.Filename)
-		logging.LogModChange(fh.Filename, logging.ModAdded)
 	}
 
 	if len(uploaded) == 0 {

@@ -49,6 +49,16 @@ func (m *WSManager) UpdateModlist(eventType string, payload json.RawMessage) {
 		Type:    eventType,
 		Payload: payload,
 	})
+
+	// Update modlist changelog
+	modlistChangelog, err := helpers.GetModlistChangelog()
+	if err == nil {
+		payload, _ := json.Marshal(modlistChangelog)
+		m.broadcast(Event{
+			Type:    EventModlistChangelog,
+			Payload: payload,
+		})
+	}
 }
 
 func (m *WSManager) StartServer() {

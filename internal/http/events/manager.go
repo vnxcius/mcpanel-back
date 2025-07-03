@@ -121,7 +121,7 @@ func (m *WSManager) AddClient(conn *websocket.Conn, ip string) {
 	if err == nil {
 		payload, _ := json.Marshal(modlistChangelog)
 		c.send(Event{
-			Type:    EventModlistChangelogUpdate,
+			Type:    EventModlistChangelog,
 			Payload: payload,
 		})
 	}
