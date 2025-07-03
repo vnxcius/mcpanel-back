@@ -1,0 +1,23 @@
+name: Deploy API
+
+on:
+  push:
+    branches:
+      - main
+jobs:
+  deploy:
+    runs-on: self-hosted
+
+    steps:
+      - name: Pull latest code
+        run: |
+          cd /opt/mcpanel-back
+          git fetch origin
+          git reset --hard origin/main
+      - name: Build project
+        run: |
+          cd /opt/mcpanel-back
+          go build -o api ./cmd/api/main.go
+      - name: Restart API service
+        run: |
+          sudo /bin/systemctl restart minecraft-api
