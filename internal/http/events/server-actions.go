@@ -44,37 +44,11 @@ func (m *WSManager) SetStatus(status ServerStatus) {
 	slog.Info("Server status updated", "status", status)
 }
 
-func (m *WSManager) UpdateModlist() error {
-	payload, err := helpers.GetMods()
-	if err != nil {
-		slog.Error("Error marshalling message", "error", err)
-		return err
-	}
-
+func (m *WSManager) UpdateModlist(eventType string, payload json.RawMessage) {
 	m.broadcast(Event{
-		Type:    EventModlistUpdate,
+		Type:    eventType,
 		Payload: payload,
 	})
-
-	var modlistChangelog []map[string]any
-	modlistChangelog, err = helpers.GetModlistChangelog()
-	if err != nil {
-		slog.Error("Error marshalling message", "error", err)
-		return err
-	}
-
-	jsonPayload, err := json.Marshal(modlistChangelog)
-	if err != nil {
-		slog.Error("Error marshalling payload", "error", err)
-		return err
-	}
-
-	m.broadcast(Event{
-		Type:    EventModlistChangelogUpdate,
-		Payload: jsonPayload,
-	})
-
-	return nil
 }
 
 func (m *WSManager) StartServer() {

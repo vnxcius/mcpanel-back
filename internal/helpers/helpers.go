@@ -41,7 +41,9 @@ func GetMods() ([]byte, error) {
 		return nil, err
 	}
 
-	var mods []mod
+	// send empty array if no mods
+	var mods []mod = []mod{}
+
 	for _, e := range entries {
 		// only add .jar files to the list
 		if !e.IsDir() && strings.EqualFold(filepath.Ext(e.Name()), ".jar") {
@@ -235,7 +237,6 @@ func UpdateModFromDir(
 		return fmt.Errorf("removing old mod: %w", err)
 	}
 
-	logging.LogModChange(fmt.Sprintf("%s → %s", oldModBase, newFilename), logging.ModUpdated)
 	return nil
 }
 

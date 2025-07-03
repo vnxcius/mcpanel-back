@@ -97,7 +97,7 @@ func (c *Client) WriteMessages() {
 				return
 			}
 
-			slog.Info("Sent message", "type", message.Type)
+			slog.Debug("Sent message", "type", message.Type)
 		case <-ticker.C:
 			slog.Info("Ping sent to client", "ip", c.ip)
 			if err := c.connection.WriteMessage(websocket.PingMessage, []byte(``)); err != nil {

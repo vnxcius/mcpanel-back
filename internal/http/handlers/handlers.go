@@ -3,6 +3,7 @@ package handlers
 import (
 	"bufio"
 	"encoding/json"
+	"fmt"
 	"log"
 	"log/slog"
 	"net/http"
@@ -15,6 +16,7 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/vnxcius/mcpanel-back/internal/helpers"
 	"github.com/vnxcius/mcpanel-back/internal/http/events"
+	"github.com/vnxcius/mcpanel-back/internal/logging"
 )
 
 var (
@@ -85,7 +87,18 @@ func UploadMods(c *gin.Context) {
 		return
 	}
 
-	events.Manager.UpdateModlist()
+	for _, uploadedMod := range uploaded {
+		change := logging.LogModChange(uploadedMod, logging.ModAdded)
+
+		payload, err := json.Marshal(change)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		events.Manager.UpdateModlist(events.EventModAdded, payload)
+	}
+
 	c.JSON(http.StatusCreated, gin.H{
 		"mods":    uploaded,
 		"skipped": skipped,
@@ -112,7 +125,18 @@ func UpdateMod(c *gin.Context) {
 		return
 	}
 
-	events.Manager.UpdateModlist()
+	change := logging.LogModChange(
+		fmt.Sprintf("%s → %s", oldModBase, file.Filename),
+		logging.ModUpdated,
+	)
+
+	payload, err := json.Marshal(change)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	events.Manager.UpdateModlist(events.EventModUpdated, payload)
 	c.Status(http.StatusNoContent) // 204
 }
 
@@ -130,7 +154,15 @@ func DeleteMod(c *gin.Context) {
 		return
 	}
 
-	events.Manager.UpdateModlist()
+	change := logging.LogModChange(modName, logging.ModDeleted)
+
+	payload, err := json.Marshal(change)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	events.Manager.UpdateModlist(events.EventModDeleted, payload)
 	c.Status(http.StatusNoContent) // 204
 }
 

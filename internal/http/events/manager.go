@@ -41,14 +41,10 @@ func init() {
 	allowedOrigins = strings.Split(os.Getenv("ALLOWED_ORIGINS"), ",")
 }
 
-func contains(s []string, str string) bool {
-	return slices.Contains(s, str)
-}
-
 func checkOrigin(r *http.Request) bool {
 	origin := r.Header.Get("Origin")
 
-	if origin != "" && contains(allowedOrigins, origin) {
+	if origin != "" && slices.Contains(allowedOrigins, origin) {
 		return true
 	}
 
@@ -100,7 +96,7 @@ func (m *WSManager) AddClient(conn *websocket.Conn, ip string) {
 	modPayload, err := helpers.GetMods()
 	if err == nil {
 		c.send(Event{
-			Type:    EventModlistUpdate,
+			Type:    EventModlist,
 			Payload: modPayload,
 		})
 	} else {
@@ -159,7 +155,7 @@ func (m *WSManager) broadcast(evt Event) {
 	for c := range m.clients {
 		select {
 		case c.egress <- evt:
-			slog.Info("Broadcasting event", "type", evt.Type)
+			slog.Debug("Broadcasting event", "type", evt.Type)
 		default:
 			slog.Warn("client buffer full, dropping event")
 		}

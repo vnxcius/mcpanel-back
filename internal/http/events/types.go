@@ -41,7 +41,10 @@ type ServerStatus string
 
 const (
 	EventStatusUpdate           = "status_update"
-	EventModlistUpdate          = "modlist_update"
+	EventModAdded               = "mod_added"
+	EventModDeleted             = "mod_deleted"
+	EventModUpdated             = "mod_updated"
+	EventModlist                = "modlist"
 	EventModlistChangelogUpdate = "modlist_changelog_update"
 	EventLogAppend              = "log_append"
 	EventLogSnapshot            = "log_snapshot"

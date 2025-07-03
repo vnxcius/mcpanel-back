@@ -84,10 +84,16 @@ func SetupModlistChangelog(dir string) {
 	modlog.rotateIfNeeded()
 }
 
-func LogModChange(name string, changeType ModChangeType) {
+func LogModChange(name string, changeType ModChangeType) ModChangeEntry {
 	if !changeType.IsValid() {
 		slog.Warn("Invalid mod change type", "type", changeType)
-		return
+		return ModChangeEntry{}
+	}
+
+	entry := ModChangeEntry{
+		Time: time.Now().Format(time.RFC3339),
+		Name: name,
+		Type: changeType,
 	}
 
 	modlog.mu.Lock()
@@ -95,12 +101,8 @@ func LogModChange(name string, changeType ModChangeType) {
 
 	modlog.rotateIfNeeded()
 
-	entry := ModChangeEntry{
-		Time: time.Now().Format(time.RFC3339),
-		Name: name,
-		Type: changeType,
-	}
-	json.NewEncoder(modlog.current).Encode(entry)
+	_ = json.NewEncoder(modlog.current).Encode(entry)
+	return entry
 }
 
 func (l *ModChangelog) rotateIfNeeded() {
