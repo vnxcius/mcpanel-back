@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/vnxcius/mcpanel-back/internal/db"
 )
 
 type Session struct {
@@ -18,15 +19,6 @@ type Session struct {
 
 func TokenAuth() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		dbAny, exists := c.Get("db")
-		if !exists {
-			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
-				"message": "Database connection not found",
-			})
-			return
-		}
-		db := dbAny.(*sql.DB)
-
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" {
 			slog.Debug("No authorization header found")
@@ -54,7 +46,7 @@ func TokenAuth() gin.HandlerFunc {
 		}
 
 		var retrievedID string
-		err := db.QueryRow(`SELECT id FROM "Session" WHERE id = $1`, token).Scan(&retrievedID)
+		err := db.DBConn.QueryRow(`SELECT id FROM "Session" WHERE id = $1`, token).Scan(&retrievedID)
 
 		if err != nil {
 			if err == sql.ErrNoRows {

@@ -1,8 +1,8 @@
 package router
 
 import (
-	"database/sql"
 	"html/template"
+	"io/fs"
 	"log"
 	"log/slog"
 	"net/http"
@@ -12,14 +12,14 @@ import (
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
-	"github.com/vnxcius/mcpanel-back/internal/http/handlers"
-	"github.com/vnxcius/mcpanel-back/internal/http/middleware"
-	"github.com/vnxcius/mcpanel-back/internal/http/templates"
+	"github.com/vnxcius/mcpanel-back/internal/api/handlers"
+	"github.com/vnxcius/mcpanel-back/internal/api/middleware"
+	"github.com/vnxcius/mcpanel-back/web"
 )
 
-func NewRouter(db *sql.DB) {
+func NewRouter() {
 	r := gin.New()
-	r.Use(middleware.SlogLoggerMiddleware())
+	r.Use(middleware.SloggerMiddleware())
 	r.Use(gin.Recovery())
 	r.MaxMultipartMemory = 512 << 20
 
@@ -48,12 +48,17 @@ func NewRouter(db *sql.DB) {
 		MaxAge:           24 * time.Hour,
 	}))
 
-	tmpl := template.Must(template.ParseFS(templates.TemplatesFS, "*.html"))
+	tmpl := template.Must(template.ParseFS(web.TemplatesFS, "templates/*.html"))
 	r.SetHTMLTemplate(tmpl)
+
+	staticFS, _ := fs.Sub(web.TemplatesFS, "static")
+	r.StaticFS("/static", http.FS(staticFS))
 
 	{
 		v2 := r.Group("/api/v2").Use(middleware.RateLimit())
-		v2.GET("/ping", handlers.Ping)
+		v2.GET("/ping", func(ctx *gin.Context) {
+			ctx.JSON(http.StatusOK, gin.H{"message": "pong"})
+		})
 
 		v2.GET("/bot/terms-of-service", func(ctx *gin.Context) {
 			ctx.HTML(http.StatusOK, "tos", nil)
@@ -68,7 +73,6 @@ func NewRouter(db *sql.DB) {
 
 	{
 		protected := r.Group("/api/v2/signed")
-		protected.Use(middleware.WithDB(db))
 		protected.Use(middleware.RateLimit())
 		protected.Use(middleware.TokenAuth())
 
@@ -83,9 +87,14 @@ func NewRouter(db *sql.DB) {
 	}
 
 	r.NoRoute(func(c *gin.Context) {
-		c.JSON(404, gin.H{"message": "Not Found: " + c.Request.URL.Path})
+		c.JSON(404, gin.H{"message": "This Page Was Not Found: " + c.Request.URL.Path})
 	})
 
+	if os.Getenv("ENVIRONMENT") == "production" {
+		gin.SetMode(gin.ReleaseMode)
+	}
+
+	slog.Info("Starting server in " + gin.Mode())
 	slog.Info("Starting server on port " + os.Getenv("PORT"))
 	if err := r.Run(); err != nil {
 		log.Fatal(err)

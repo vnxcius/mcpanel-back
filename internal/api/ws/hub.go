@@ -1,6 +1,7 @@
-package events
+package ws
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"log"
@@ -9,13 +10,24 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"time"
 
 	"slices"
 
 	"github.com/gorilla/websocket"
 	"github.com/joho/godotenv"
-	"github.com/vnxcius/mcpanel-back/internal/helpers"
+	"github.com/vnxcius/mcpanel-back/internal/otp"
+	"github.com/vnxcius/mcpanel-back/internal/utils"
 )
+
+type WSManager struct {
+	clients ClientList
+	sync.RWMutex
+	handlers map[string]EventHandler
+	otps     otp.RetentionMap
+
+	currentStatus string
+}
 
 var (
 	WebsocketUpgrader = websocket.Upgrader{
@@ -53,20 +65,22 @@ func checkOrigin(r *http.Request) bool {
 	return token == os.Getenv("DISCORD_BOT_TOKEN")
 }
 
-func newManager() *WSManager {
-	status := Offline
-	if helpers.IsMinecraftCurrentlyOnline() {
-		status = Online
+func newManager(ctx context.Context) *WSManager {
+	status := "offline"
+	if utils.IsMinecraftCurrentlyOnline() {
+		status = "online"
 	}
 	return &WSManager{
 		clients:       make(ClientList),
 		handlers:      make(map[string]EventHandler),
 		currentStatus: status,
+		otps:          otp.NewRetentionMap(ctx, 5*time.Minute),
 	}
 }
 
 func InitializeManager() {
-	Manager = newManager()
+	//TODO: pass context
+	Manager = newManager(context.Background())
 }
 
 func (m *WSManager) AddClient(conn *websocket.Conn, ip string) {
@@ -93,7 +107,7 @@ func (m *WSManager) AddClient(conn *websocket.Conn, ip string) {
 	})
 
 	// update modlist
-	modPayload, err := helpers.GetMods()
+	modPayload, err := utils.GetMods()
 	if err == nil {
 		c.send(Event{
 			Type:    EventModlist,
@@ -117,7 +131,7 @@ func (m *WSManager) AddClient(conn *websocket.Conn, ip string) {
 	}
 
 	// changelog
-	modlistChangelog, err := helpers.GetModlistChangelog()
+	modlistChangelog, err := utils.GetModlistChangelog()
 	if err == nil {
 		payload, _ := json.Marshal(modlistChangelog)
 		c.send(Event{
@@ -166,14 +180,14 @@ func (m *WSManager) syncWithMinecraft() {
 	slog.Info("Syncing with Minecraft server...")
 	status := m.GetStatus()
 
-	if helpers.IsMinecraftCurrentlyOnline() && status == Offline {
-		m.SetStatus(Online)
+	if utils.IsMinecraftCurrentlyOnline() && status == "offline" {
+		m.SetStatus("online")
 		slog.Info("Minecraft server corrected to online")
 		return
 	}
 
-	if !helpers.IsMinecraftCurrentlyOnline() && status == Online {
-		m.SetStatus(Offline)
+	if !utils.IsMinecraftCurrentlyOnline() && status == "online" {
+		m.SetStatus("offline")
 		slog.Info("Minecraft server corrected to offline")
 		return
 	}

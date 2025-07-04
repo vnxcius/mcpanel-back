@@ -1,4 +1,4 @@
-package events
+package ws
 
 import (
 	"encoding/json"
@@ -7,6 +7,17 @@ import (
 
 	"github.com/gorilla/websocket"
 )
+
+type Client struct {
+	connection *websocket.Conn
+	manager    *WSManager
+	ip         string
+
+	// Buffered channel of outbound messages
+	egress chan Event
+}
+
+type ClientList map[*Client]bool
 
 var (
 	pongWait     = 10 * time.Second
