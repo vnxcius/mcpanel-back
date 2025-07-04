@@ -7,7 +7,6 @@
 *.dll
 *.so
 *.dylib
-discord-bot
 .visudo.swp
 
 # Test binary, built with `go test -c`

@@ -15,8 +15,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 	"github.com/vnxcius/mcpanel-back/internal/api/ws"
-	"github.com/vnxcius/mcpanel-back/internal/utils"
 	"github.com/vnxcius/mcpanel-back/internal/logging"
+	"github.com/vnxcius/mcpanel-back/internal/utils"
 )
 
 var (
@@ -24,9 +24,8 @@ var (
 )
 
 func init() {
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatal("Error loading .env file")
+	if err := godotenv.Load(); err != nil {
+		log.Fatal("Error loading .env file in handlers: ", err)
 	}
 
 	modsDir = os.Getenv("MODS_PATH")
