@@ -266,3 +266,22 @@ func RestartServer(c *gin.Context) {
 	slog.Info("Server restarting...")
 	c.JSON(http.StatusOK, gin.H{"message": "O servidor está reiniciando..."})
 }
+
+func SendCommand(c *gin.Context) {
+	type Body struct {
+		Command string `json:"command"`
+	}
+
+	var body Body
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
+		return
+	}
+
+	err := ws.Manager.SendCommand(body.Command)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Comando enviado com sucesso"})
+}

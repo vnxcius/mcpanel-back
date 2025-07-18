@@ -79,6 +79,7 @@ func NewRouter() {
 		protected.POST("/server/start", handlers.StartServer)
 		protected.POST("/server/stop", handlers.StopServer)
 		protected.POST("/server/restart", handlers.RestartServer)
+		protected.POST("/server/cmd", handlers.SendCommand)
 
 		protected.POST("/mod/upload", handlers.UploadMods)
 		protected.GET("/mod/download/:name", handlers.DownloadMod)

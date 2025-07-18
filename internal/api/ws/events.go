@@ -179,3 +179,12 @@ func (m *WSManager) RestartServer() {
 		m.SetStatus("online")
 	}()
 }
+
+func (m *WSManager) SendCommand(command string) error {
+	cmd := exec.Command("echo", command, ">", "/run/ronaldomc.stdin")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		log.Printf("Command '%s' failed: %v\nOutput:\n%s", command, err, string(output))
+	}
+	return err
+}
